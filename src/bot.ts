@@ -10,6 +10,8 @@ import * as Discord from 'discord.js';
 import { messageObj } from './models';
 import { exec } from 'child_process';
 import { MessageEmbed } from 'discord.js';
+import * as crypto from 'crypto';
+import { serializeError } from 'serialize-error';
 
 
 console.log(color.blue("********************** Initializing ************************"));
@@ -277,25 +279,34 @@ dbmaster.connect(async (err: any) => {
 
 
             rateLimiter.consume(_messageObj.message.author.id + "_" + _messageObj.command, execCommand.RLPointsConsume)
-                .then((rateLimiterRes) => {
-
-                    if (parseInt(process.env.VERBOSITY) >= 2) {
-                        console.log(color.cyan("[Consumed RL Token]"), color.magenta(`<${_messageObj.message.author.id}>`), color.yellow(execCommand.RLPointsConsume), "consumed");
-                    }
-                    try {
-                        execCommand.execute(_messageObj, bot, dbmaster);
-                    } catch (exception) {
-                        message.channel.send("An error has occurred!");
-                    }
+                .then(() => {
+                    execCommand.execute(_messageObj, bot, dbmaster);
                 })
-                .catch((rateLimiterRes) => {
+                .catch((exception) => {
 
-                    console.log(rateLimiterRes);
+                    var pjson = require(__dirname + '/package.json');
 
-                    message.channel.send("Sorry, you have exceeded the rate limit for this command!");
 
-                    //ws.send(Response.error("ratelimit", { "command": messageJSON.command, "points": execCommand.RLpointsConsume, "points_left": rateLimiterRes.remainingPoints, "retry_after": rateLimiterRes.msBeforeNext }, ws.ContentType));
-                    console.log(color.red("[ERROR]", color.magenta(`<${_messageObj.command}>`), color.yellow("Rate Limit Exceeded!")));
+                    console.log(JSON.stringify(serializeError(exception)));
+                    let iv = crypto.randomBytes(16);
+
+                    const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.BOT_CRASH_SECRET), iv);
+                    let StackTrace = cipher.update(JSON.stringify(serializeError(exception)));
+
+                    StackTrace = Buffer.concat([StackTrace, cipher.final()]);
+
+
+
+
+                    const embed = new MessageEmbed()
+                        .setColor('#0099ff')
+                        .setTitle("Woops! I crashed...")
+                        .setDescription("```" + iv.toString('hex') + "." + StackTrace.toString('hex') + "```")
+                        .addField("What to do?", "Report the bug using the string above")
+                        .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
+                        .setTimestamp();
+                    message.channel.send(embed);
+
                 });
 
         } catch (error) {

@@ -15,8 +15,13 @@ module.exports = function (grunt) {
         copy: {
             default: {
                 nonull: true,
-                src: 'src/.env.example',
-                dest: 'build/.env.example',
+                src: ['src/.env.example', 'package.json'],
+                dest: 'build/*',
+            },
+            dev: {
+                nonull: true,
+                src: ['package.json'],
+                dest: 'src/*',
             },
         },
         compress: {
@@ -39,5 +44,5 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks("grunt-contrib-clean");
     grunt.loadNpmTasks('grunt-contrib-copy');
     grunt.loadNpmTasks("grunt-contrib-compress");
-    grunt.registerTask("default", ["clean:default", "ts:default", "copy:default", "compress:default"]);
+    grunt.registerTask("default", ["clean", "ts", "copy", "compress"]);
 };
