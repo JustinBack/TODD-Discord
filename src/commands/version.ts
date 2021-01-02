@@ -25,8 +25,6 @@ module.exports = {
             .addField("MESSAGE_ID", message.id, true)
             .setTimestamp();
 
-        throw Error("oof");
-
         message.message.channel.send(embed).then(() => {
             return true;
         }).catch(() => {
