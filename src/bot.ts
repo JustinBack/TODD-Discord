@@ -18,7 +18,7 @@ export const commands = loadCommands();
 export const bot = new Discord.Client({ partials: ['CHANNEL', 'MESSAGE', 'REACTION'] });
 
 dotenv.config({
-    path: __dirname + "/../.env"
+    path: __dirname + "/.env"
 });
 console.log(color.green("Loaded environment variables!"));
 
@@ -42,7 +42,8 @@ redisClient.on('error', (err) => {
     console.log(err);
 });
 
-const opts = {
+
+const rateLimiter = new RateLimit.RateLimiterRedis({
     // Basic options
     storeClient: redisClient,
     points: 100, // 6 points
@@ -52,10 +53,8 @@ const opts = {
     execEvenly: false, // Do not delay actions evenly
     blockDuration: 0, // Do not block if consumed more than points
     keyPrefix: 'toddbot', // must be unique for limiters with different purpose
-};
-
-const rateLimiter = new RateLimit.RateLimiterRedis(opts);
-console.log(color.green(`Started redis rate limiter`), opts);
+});
+console.log(color.green(`Started redis rate limiter`));
 
 console.log(color.green(`Connection to Redis Server established on DB Index ${color.cyan(process.env.REDIS_INDEX)}`));
 
@@ -242,7 +241,7 @@ dbmaster.connect(async (err: any) => {
                 return;
             }
 
-            if (message.guild.id != process.env.GUILD_HOME && execCommand.priviliged) {
+            if (execCommand.priviliged && message.guild.id != process.env.GUILD_HOME) {
 
                 bot.guilds.fetch(process.env.GUILD_HOME)
                     .then(guild => {

@@ -1,2 +1,7 @@
 .env
 node_modules/
+.vs/
+.vscode/
+.tscache/
+.vsls.json
+package-lock.json
