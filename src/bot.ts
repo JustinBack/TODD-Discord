@@ -284,10 +284,13 @@ dbmaster.connect(async (err: any) => {
                 })
                 .catch((exception) => {
 
+                    if (typeof exception._remainingPoints != "undefined") {
+                        message.channel.send("Seems you hit the ratelimit, try again later, in like 30 secs");
+                        return;
+                    }
+
                     var pjson = require(__dirname + '/package.json');
 
-
-                    console.log(JSON.stringify(serializeError(exception)));
                     let iv = crypto.randomBytes(16);
 
                     const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.BOT_CRASH_SECRET), iv);
