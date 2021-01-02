@@ -1,6 +1,6 @@
 {
   "name": "todd",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "TODD is your TOsDr Discord Bot",
   "main": "bot.ts",
   "scripts": {
