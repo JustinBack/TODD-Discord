@@ -1,5 +1,6 @@
 module.exports = function (grunt) {
     grunt.initConfig({
+        pkg: grunt.file.readJSON("package.json"),
         ts: {
             default: {
                 tsconfig: true
@@ -8,7 +9,7 @@ module.exports = function (grunt) {
         clean: {
             default: {
                 dot: true,
-                src: "build/**/*"
+                src: ["build/**/*", "dist/**/*"]
             },
         },
         copy: {
@@ -18,10 +19,25 @@ module.exports = function (grunt) {
                 dest: 'build/.env.example',
             },
         },
+        compress: {
+            default: {
+                options: {
+                    archive: 'dist/<%= pkg.version %>.zip',
+                    mode: 'zip'
+                },
+                files: [
+                    {
+                        src: '**/*',
+                        expand: true,
+                        cwd: 'build/'
+                    }
+                ]
+            }
+        }
     });
     grunt.loadNpmTasks("grunt-ts");
     grunt.loadNpmTasks("grunt-contrib-clean");
     grunt.loadNpmTasks('grunt-contrib-copy');
-
-    grunt.registerTask("default", ["clean:default", "ts:default", "copy:default"]);
+    grunt.loadNpmTasks("grunt-contrib-compress");
+    grunt.registerTask("default", ["clean:default", "ts:default", "copy:default", "compress:default"]);
 };

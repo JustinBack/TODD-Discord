@@ -1,8 +1,19 @@
 .env
 node_modules/
-.vs/
 .vscode/
 .tscache/
+dist/
+
+
+
+
+
+
+
+
+
+
+
 # Logs
 logs
 *.log
