@@ -33,7 +33,7 @@ module.exports = {
 
 			request("https://beta.tosdr.org/api/2/" + message.argument + ".json", function (error, response, body) {
 				if (error) {
-					return false;
+					throw Error(error.message);
 				}
 				clearInterval(twirlTimer);
 				let json = JSON.parse(body);
@@ -41,8 +41,8 @@ module.exports = {
 				if (json.error) {
 					msg.edit("Hmm, seems that service does not exist!").then(() => {
 						return true;
-					}).catch(() => {
-						return false;
+					}).catch((err) => {
+						throw Error(err.message);
 					});
 					return;
 				}
