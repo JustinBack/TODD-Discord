@@ -7,7 +7,7 @@
     "preserveConstEnums": true,
     "outDir": "build/",
     "rootDir": "src/",
-    "sourceMap": true
+    "sourceMap": false
   },
   "include": [
     "src/**/*"
