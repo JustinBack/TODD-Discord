@@ -14,14 +14,22 @@ module.exports = function (grunt) {
         },
         copy: {
             default: {
-                nonull: true,
-                src: ['src/.env.example', 'package.json'],
-                dest: 'build/*',
-            },
-            dev: {
-                nonull: true,
-                src: ['package.json'],
-                dest: 'src/*',
+                files: [
+                    {
+                        nonull: true,
+                        src: 'src/.env.example',
+                        dest: 'build/.env.example',
+                    },
+                    {
+                        nonull: true,
+                        src: 'package.json',
+                        dest: 'src/package.json',
+                    }, {
+                        nonull: true,
+                        src: 'package.json',
+                        dest: 'build/package.json',
+                    }
+                ]
             },
         },
         compress: {
