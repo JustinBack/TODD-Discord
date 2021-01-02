@@ -9,7 +9,7 @@ module.exports = function (grunt) {
         clean: {
             default: {
                 dot: true,
-                src: ["build/**/*", "dist/**/*"]
+                src: ["build/**/*"]
             },
         },
         copy: {
