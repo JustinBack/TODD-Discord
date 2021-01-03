@@ -25,7 +25,7 @@ dotenv.config({
 console.log(color.green("Loaded environment variables!"));
 
 
-var dbmaster = mysql.createConnection({
+var dbmaster = mysql.createPool({
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USERNAME,
     password: process.env.MYSQL_PASSWORD,
@@ -72,14 +72,7 @@ bot.on('ready', () => {
     });
 });
 
-dbmaster.connect(async (err: any) => {
-    if (err) {
-        if (parseInt(process.env.VERBOSITY) >= 3) {
-            console.log(color.red("[ERROR]", color.magenta("<Exception Stacktrace>"), color.yellow(err.stack)));
-        } else {
-            console.log(color.red("[ERROR]", color.magenta("<Exception>"), color.yellow(err)));
-        }
-    }
+
     console.log(color.green(`Connection to Master MySQL Server established on DB ${color.cyan(process.env.MYSQL_HOST)}`));
 
     bot.on('messageReactionRemove', async (reaction, user) => {
@@ -114,7 +107,7 @@ dbmaster.connect(async (err: any) => {
             }
 
 
-            dbmaster.query("DELETE FROM Reactions WHERE MessageID = ? AND UserID = ? AND Reaction = ?", [reaction.message.id, user.id, reaction.emoji.toString()], function (err) {
+            dbmaster.query("DELETE FROM Reactions WHERE MessageID = ? AND UserID = ? AND Reaction = ?", [reaction.message.id, user.id, reaction.emoji.identifier], function (err) {
                 if (err) {
                     console.log(err);
                     return;
@@ -176,14 +169,14 @@ dbmaster.connect(async (err: any) => {
                 }
                 if (rows.length > 0) {
                     for (const reaction of userReactions.values()) {
-                        if (reaction.emoji.toString() != rows[0]["Reaction"]) {
+                        if (reaction.emoji.identifier != rows[0]["Reaction"]) {
                             await reaction.users.remove(user.id);
                         }
                     }
                     return;
                 }
 
-                dbmaster.query("INSERT INTO Reactions (MessageID, UserID, Reaction) VALUES (?,?,?)", [reaction.message.id, user.id, reaction.emoji.toString()], async function (err) {
+                dbmaster.query("INSERT INTO Reactions (MessageID, UserID, Reaction) VALUES (?,?,?)", [reaction.message.id, user.id, reaction.emoji.identifier], async function (err) {
                     if (err) {
                         console.log(err);
                         user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
@@ -319,8 +312,6 @@ dbmaster.connect(async (err: any) => {
         }
     });
 
-
-});
 
 
 bot.login(process.env.BOT_TOKEN);

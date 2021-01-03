@@ -3,7 +3,7 @@ import * as StripTags from 'striptags';
 import * as fs from "fs";
 import { Client, MessageEmbed } from 'discord.js';
 import { loadCommands } from '../utils/load-commands';
-import { Connection } from 'mysql';
+import { Connection, Pool } from 'mysql';
 
 module.exports = {
     name: 'poll',
@@ -12,7 +12,7 @@ module.exports = {
     syntax: "poll {Channel} {PollName}",
     RLPointsConsume: 0,
     priviliged: true,
-    execute: (message: messageObj, bot: Client, database: Connection) => {
+    execute: (message: messageObj, bot: Client, database: Pool) => {
 
         if (message.message.channel.type == "dm") {
             message.message.channel.send("Nope, don't do this in a direct message!");
