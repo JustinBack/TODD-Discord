@@ -55,13 +55,15 @@ module.exports = {
                     return;
                 }
 
+                console.log(json.parameters.id);
+
                 const embed = new MessageEmbed()
                     .setColor('#0099ff')
                     .setTitle(json.parameters.name)
                     .setURL('https://beta.tosdr.org/en/service/' + json.parameters.id)
                     .setDescription(`${json.parameters.name} has \`${Object.keys(json.parameters.links).length}\` Documents and \`${json.parameters.points.length}\` Points`)
                     .setImage('https://beta.tosdr.org/api/badgepng/' + json.parameters.slug)
-                    .setThumbnail('https://beta.tosdr.org' + (json.parameters.image.endsWith(".svg") ? json.parameters.image.substr(0, json.parameters.image.length - 4) + ".png" : json.parameters.image))
+                    .setThumbnail(json.parameters.image)
                     .setTimestamp()
                     .setFooter("https://beta.tosdr.org/api/2/" + message.argument + ".json");
 
