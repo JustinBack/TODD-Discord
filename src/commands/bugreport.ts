@@ -8,9 +8,6 @@ module.exports = {
     priviliged: false,
     RLPointsConsume: 2,
     execute: (message: messageObj, bot: Client) => {
-        var pjson = require(__dirname + '/../package.json');
-
-
         const embed = new MessageEmbed()
             .setColor('#0099ff')
             .setTitle("Bugreport")
