@@ -73,92 +73,123 @@ bot.on('ready', () => {
 });
 
 
-    console.log(color.green(`Connection to Master MySQL Server established on DB ${color.cyan(process.env.MYSQL_HOST)}`));
+console.log(color.green(`Connection to Master MySQL Server established on DB ${color.cyan(process.env.MYSQL_HOST)}`));
 
-    bot.on('messageReactionRemove', async (reaction, user) => {
 
-        if (reaction.partial) {
-            try {
-                await reaction.fetch();
-            } catch (error) {
-                console.error('Something went wrong when fetching the message: ', error);
-                return;
-            }
+bot.on('guildMemberAdd', async (member) => {
+    if (member.guild.id == process.env.GUILD_HOME) {
+        let role = member.guild.roles.cache.get(process.env.WELCOME_ROLE);
+
+        if (!role) {
+            console.error('Role not found');
+            return;
         }
+        member.roles.add(role);
+    }
+});
 
-        if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
+bot.on('messageReactionRemove', async (reaction, user) => {
+
+    if (reaction.partial) {
+        try {
+            await reaction.fetch();
+        } catch (error) {
+            console.error('Something went wrong when fetching the message: ', error);
+            return;
+        }
+    }
+
+    if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
+        return;
+    }
+
+    dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, rows) {
+
+        if (err) {
+            console.log(err);
             return;
         }
 
-        dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, rows) {
+        if (rows.length == 0) {
+            return;
+        }
 
+
+        if (new Date(rows[0]["Until"]) < new Date()) {
+            return;
+        }
+
+
+        dbmaster.query("DELETE FROM Reactions WHERE MessageID = ? AND UserID = ? AND Reaction = ?", [reaction.message.id, user.id, reaction.emoji.identifier], function (err) {
             if (err) {
                 console.log(err);
                 return;
             }
+            const embed = new MessageEmbed()
+                .setColor('#0099ff')
+                .setTitle("Server Poll")
+                .setFooter("Poll will run until " + rows[0]["Until"])
+                .setDescription(rows[0]["PollText"]);
+            embed.addField("**Votes**", "------");
 
-            if (rows.length == 0) {
-                return;
-            }
-
-
-            if (new Date(rows[0]["Until"]) < new Date()) {
-                return;
-            }
-
-
-            dbmaster.query("DELETE FROM Reactions WHERE MessageID = ? AND UserID = ? AND Reaction = ?", [reaction.message.id, user.id, reaction.emoji.identifier], function (err) {
-                if (err) {
-                    console.log(err);
-                    return;
-                }
-                const embed = new MessageEmbed()
-                    .setColor('#0099ff')
-                    .setTitle("Server Poll")
-                    .setFooter("Poll will run until " + rows[0]["Until"])
-                    .setDescription(rows[0]["PollText"]);
-                embed.addField("**Votes**", "------");
-
-                reaction.message.reactions.cache.forEach(function (Reaction) {
-                    embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
-                });
-                reaction.message.edit(embed);
+            reaction.message.reactions.cache.forEach(function (Reaction) {
+                embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
             });
+            reaction.message.edit(embed);
         });
     });
+});
 
-    bot.on('messageReactionAdd', async (reaction, user) => {
+bot.on('messageReactionAdd', async (reaction, user) => {
 
-        if (reaction.partial) {
-            try {
-                await reaction.fetch();
-            } catch (error) {
-                console.error('Something went wrong when fetching the message: ', error);
-                return;
-            }
-        }
-
-
-        if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
+    if (reaction.partial) {
+        try {
+            await reaction.fetch();
+        } catch (error) {
+            console.error('Something went wrong when fetching the message: ', error);
             return;
         }
-        const userReactions = reaction.message.reactions.cache.filter(reaction => reaction.users.cache.has(user.id));
+    }
 
-        dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, Pollrows) {
 
-            if (Pollrows.length == 0) {
-                return;
+    if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
+        return;
+    }
+    const userReactions = reaction.message.reactions.cache.filter(reaction => reaction.users.cache.has(user.id));
+
+    dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, Pollrows) {
+
+        if (Pollrows.length == 0) {
+            return;
+        }
+
+        if (new Date(Pollrows[0]["Until"]) < new Date()) {
+            for (const reaction of userReactions.values()) {
+                await reaction.users.remove(user.id);
             }
+            return;
+        }
 
-            if (new Date(Pollrows[0]["Until"]) < new Date()) {
+        dbmaster.query("SELECT * FROM Reactions WHERE MessageID = ? AND UserID = ?", [reaction.message.id, user.id], async function (err, rows) {
+
+            if (err) {
+                console.log(err);
+                user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
                 for (const reaction of userReactions.values()) {
                     await reaction.users.remove(user.id);
                 }
                 return;
             }
+            if (rows.length > 0) {
+                for (const reaction of userReactions.values()) {
+                    if (reaction.emoji.identifier != rows[0]["Reaction"]) {
+                        await reaction.users.remove(user.id);
+                    }
+                }
+                return;
+            }
 
-            dbmaster.query("SELECT * FROM Reactions WHERE MessageID = ? AND UserID = ?", [reaction.message.id, user.id], async function (err, rows) {
-
+            dbmaster.query("INSERT INTO Reactions (MessageID, UserID, Reaction) VALUES (?,?,?)", [reaction.message.id, user.id, reaction.emoji.identifier], async function (err) {
                 if (err) {
                     console.log(err);
                     user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
@@ -167,150 +198,132 @@ bot.on('ready', () => {
                     }
                     return;
                 }
-                if (rows.length > 0) {
-                    for (const reaction of userReactions.values()) {
-                        if (reaction.emoji.identifier != rows[0]["Reaction"]) {
-                            await reaction.users.remove(user.id);
-                        }
-                    }
-                    return;
-                }
 
-                dbmaster.query("INSERT INTO Reactions (MessageID, UserID, Reaction) VALUES (?,?,?)", [reaction.message.id, user.id, reaction.emoji.identifier], async function (err) {
-                    if (err) {
-                        console.log(err);
-                        user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
-                        for (const reaction of userReactions.values()) {
-                            await reaction.users.remove(user.id);
-                        }
-                        return;
-                    }
+                const embed = new MessageEmbed()
+                    .setColor('#0099ff')
+                    .setTitle("Server Poll")
+                    .setFooter("Poll will run until " + Pollrows[0]["Until"])
+                    .setDescription(Pollrows[0]["PollText"]);
 
-                    const embed = new MessageEmbed()
-                        .setColor('#0099ff')
-                        .setTitle("Server Poll")
-                        .setFooter("Poll will run until " + Pollrows[0]["Until"])
-                        .setDescription(Pollrows[0]["PollText"]);
-
-                    embed.addField("**Votes**", "------");
-                    reaction.message.reactions.cache.forEach(function (Reaction) {
-                        embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
-                    });
-                    reaction.message.edit(embed);
-
+                embed.addField("**Votes**", "------");
+                reaction.message.reactions.cache.forEach(function (Reaction) {
+                    embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
                 });
+                reaction.message.edit(embed);
+
             });
         });
     });
+});
 
 
-    bot.on('message', async message => {
+bot.on('message', async message => {
 
-        if (message.partial) {
-            try {
-                await message.fetch();
-            } catch (error) {
-                console.error('Something went wrong when fetching the message: ', error);
-                return;
-            }
+    if (message.partial) {
+        try {
+            await message.fetch();
+        } catch (error) {
+            console.error('Something went wrong when fetching the message: ', error);
+            return;
+        }
+    }
+
+    if (!message.content.startsWith(process.env.BOT_PREFIX)) {
+        return;
+    }
+
+    let _messageObj = new messageObj(message, commands);
+
+    try {
+
+
+        let execCommand = commands.get(_messageObj.command);
+
+        if (!execCommand) {
+            return _messageObj.message.channel.send("This command does not exist, try using our help for a list of available commands!");
         }
 
-        if (!message.content.startsWith(process.env.BOT_PREFIX)) {
+
+        if (execCommand.priviliged && message.channel.type == "dm") {
+            message.channel.send("You cannot run this in DMs!");
             return;
         }
 
-        let _messageObj = new messageObj(message, commands);
+        if (execCommand.priviliged && message.guild.id != process.env.GUILD_HOME) {
 
-        try {
+            bot.guilds.fetch(process.env.GUILD_HOME)
+                .then(guild => {
 
-
-            let execCommand = commands.get(_messageObj.command);
-
-            if (!execCommand) {
-                return _messageObj.message.channel.send("This command does not exist, try using our help for a list of available commands!");
-            }
-
-
-            if (execCommand.priviliged && message.channel.type == "dm") {
-                message.channel.send("You cannot run this in DMs!");
-                return;
-            }
-
-            if (execCommand.priviliged && message.guild.id != process.env.GUILD_HOME) {
-
-                bot.guilds.fetch(process.env.GUILD_HOME)
-                    .then(guild => {
-
-                        if (process.env.GUILD_INVITE_CHANNEL.length == 0) {
-                            message.channel.send("No channel has been set in the homeserver");
-                            return;
-                        }
-                        bot.channels.fetch(process.env.GUILD_INVITE_CHANNEL)
-                            .then(channel => {
-                                message.channel.send("This command can only be run in the ToS;DR Server!")
-                                    .then(() => {
-                                        (channel as Discord.TextChannel).createInvite({
-                                            reason: "Priviliged command executed outside of server",
-                                            unique: true
-                                        }).then(invite => {
-                                            (message.channel).send(invite.url);
-                                        });
-                                    });
-                            }).catch(() => {
-                                message.channel.send("Failed to fetch channel!");
-                            });
-                    })
-                    .catch(() => {
-                        message.channel.send("No homeserver has been set!");
-                    });
-                return;
-            } else if (execCommand.priviliged && !message.member.roles.cache.some(r => process.env.GUILD_PRIV_ROLES.split(",").includes(r.id))) {
-                message.channel.send("You do not have permissions to run this command!");
-                return;
-            }
-
-
-
-            rateLimiter.consume(_messageObj.message.author.id + "_" + _messageObj.command, execCommand.RLPointsConsume)
-                .then(() => {
-                    execCommand.execute(_messageObj, bot, dbmaster);
-                })
-                .catch((exception) => {
-
-                    if (typeof exception._remainingPoints != "undefined") {
-                        message.channel.send("Seems you hit the ratelimit, try again later, in like 30 secs");
+                    if (process.env.GUILD_INVITE_CHANNEL.length == 0) {
+                        message.channel.send("No channel has been set in the homeserver");
                         return;
                     }
-
-                    var pjson = require(__dirname + '/package.json');
-
-                    let iv = crypto.randomBytes(16);
-
-                    const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.BOT_CRASH_SECRET), iv);
-                    let StackTrace = cipher.update(JSON.stringify(serializeError(exception)));
-
-                    StackTrace = Buffer.concat([StackTrace, cipher.final()]);
-
-
-
-
-                    const embed = new MessageEmbed()
-                        .setColor('#0099ff')
-                        .setTitle("Woops! I crashed...")
-                        .setDescription("```" + iv.toString('hex') + "." + StackTrace.toString('hex') + "```")
-                        .addField("What to do?", "Report the bug using the string above")
-                        .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
-                        .setTimestamp();
-                    message.channel.send(embed);
-
+                    bot.channels.fetch(process.env.GUILD_INVITE_CHANNEL)
+                        .then(channel => {
+                            message.channel.send("This command can only be run in the ToS;DR Server!")
+                                .then(() => {
+                                    (channel as Discord.TextChannel).createInvite({
+                                        reason: "Priviliged command executed outside of server",
+                                        unique: true
+                                    }).then(invite => {
+                                        (message.channel).send(invite.url);
+                                    });
+                                });
+                        }).catch(() => {
+                            message.channel.send("Failed to fetch channel!");
+                        });
+                })
+                .catch(() => {
+                    message.channel.send("No homeserver has been set!");
                 });
-
-        } catch (error) {
-
-            message.channel.send("An error has occurred!");
-            console.log(color.red("[ERROR]", color.magenta(`<${_messageObj.command}>`), color.yellow(error), error.stack));
+            return;
+        } else if (execCommand.priviliged && !message.member.roles.cache.some(r => process.env.GUILD_PRIV_ROLES.split(",").includes(r.id))) {
+            message.channel.send("You do not have permissions to run this command!");
+            return;
         }
-    });
+
+
+
+        rateLimiter.consume(_messageObj.message.author.id + "_" + _messageObj.command, execCommand.RLPointsConsume)
+            .then(() => {
+                execCommand.execute(_messageObj, bot, dbmaster);
+            })
+            .catch((exception) => {
+
+                if (typeof exception._remainingPoints != "undefined") {
+                    message.channel.send("Seems you hit the ratelimit, try again later, in like 30 secs");
+                    return;
+                }
+
+                var pjson = require(__dirname + '/package.json');
+
+                let iv = crypto.randomBytes(16);
+
+                const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.BOT_CRASH_SECRET), iv);
+                let StackTrace = cipher.update(JSON.stringify(serializeError(exception)));
+
+                StackTrace = Buffer.concat([StackTrace, cipher.final()]);
+
+
+
+
+                const embed = new MessageEmbed()
+                    .setColor('#0099ff')
+                    .setTitle("Woops! I crashed...")
+                    .setDescription("```" + iv.toString('hex') + "." + StackTrace.toString('hex') + "```")
+                    .addField("What to do?", "Report the bug using the string above")
+                    .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
+                    .setTimestamp();
+                message.channel.send(embed);
+
+            });
+
+    } catch (error) {
+
+        message.channel.send("An error has occurred!");
+        console.log(color.red("[ERROR]", color.magenta(`<${_messageObj.command}>`), color.yellow(error), error.stack));
+    }
+});
 
 
 
