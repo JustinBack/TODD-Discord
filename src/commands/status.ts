@@ -20,7 +20,7 @@ module.exports = {
                 }, 1000);
             })();
 
-            request(process.env.CACHET_URL + "/api/v1/components", function (error, response, body) {
+            request(process.env.CACHET_URL + "/api/services", function (error, response, body) {
                 if (error) {
                     throw Error(error.message);
                 }
@@ -39,65 +39,67 @@ module.exports = {
                     throw Error(json.errors)
                 }
 
-
-                const OperationalColor = "#28a745";
-                const PerformanceColor = "#3498db";
-                const PartialColor = "#ffc107";
-                const MajorColor = "#dc3545";
-                const UnknownColor = "#6c757d";
-
                 const OperationalEmoji = "👍";
-                const PerformanceEmoji = "🐌";
-                const PartialEmoji = "🤕";
                 const MajorEmoji = "❌";
                 const UnknownEmoji = "❓";
                 let isMajor = false;
-                let isPerformance = false;
-                let isPartial = false
 
 
                 const embed = new MessageEmbed();
 
                 embed.setTitle("Terms of Service; Didn't Read Service Status");
-                embed.setDescription("We monitor " + json.meta.pagination.total + " of our services in total!");
+                embed.setDescription("We monitor " + json.length + " of our services in total!");
                 embed.setURL(process.env.CACHET_URL);
 
-                for (var index in json.data) {
+                for (var index in json) {
 
 
-                    let Service = json.data[index];
+                    let Service = json[index];
                     let Status = UnknownEmoji;
 
-                    switch (Service.status) {
-                        case 0:
-                            Status = UnknownEmoji;
-                            break;
-                        case 1:
-                            Status = OperationalEmoji;
-                            break;
-                        case 2:
-                            Status = PerformanceEmoji;
-                            isPerformance = true;
-                            break;
-                        case 3:
-                            Status = PartialEmoji;
-                            isPartial = true;
-                            break;
-                        case 4:
-                            Status = MajorEmoji;
-                            isMajor = true;
-                            break;
+                    if (Service.online) {
+                        Status = OperationalEmoji;
+                    } else {
+                        Status = MajorEmoji;
+                        isMajor = true;
                     }
-                    embed.addField(Status + " " + Service.name, Service.status_name);
+
+                    let Latency = Service.avg_response;
+                    let LatencyUnit = 'µs';
+                    if (Service.avg_response > 999) {
+                        LatencyUnit = 'ms';
+                        Latency = (Service.avg_response / 1000);
+                    }
+
+                    let ServiceText = `[Status Page](${process.env.CACHET_URL}/service/${Service.permalink})\n`;
+                    ServiceText += `Status: ${(Service.online ? "Online" : "Offline")}\n`;
+                    ServiceText += `Uptime: ${Service.online_24_hours}%\n`;
+                    ServiceText += `Latency: ${Latency} ${LatencyUnit}\n`;
+                    ServiceText += `Incidents: ${Service.incidents.length}\n`;
+                    if (Service.incidents.length > 0) {
+                        ServiceText += `**---**\n`;
+                        ServiceText += `- Title: *${Service.incidents[0].title}*\n`;
+                        ServiceText += `- Description: *${Service.incidents[0].description}*\n`;
+                        ServiceText += `- Date: *${Service.incidents[0].created_at}*\n`;
+                        if (Service.incidents[0].updates.length > 0) {
+                            for (var updateIndex in Service.incidents[0].updates) {
+                                let Update = Service.incidents[0].updates[updateIndex];
+
+                                ServiceText += `--- **Incident Update ${(Number.parseInt(updateIndex) + 1)}** ---\n`;
+                                ServiceText += `- **Status:** *${Update.type}*\n`;
+                                ServiceText += `- **Message**: *${Update.message}*\n`;
+                                ServiceText += `- **Date**: *${Update.created_at}*\n`;
+                            }
+                        }
+                    }
+
+
+                    embed.addField(`${Status} ${Service.name}`, ServiceText);
                 }
-                embed.addField("----", "----");
+                embed.addField("--Status--", "----");
 
                 if (isMajor) {
                     embed.addField("Major Outage", "It seems we have a major outage");
-                } else if (isPartial) {
-                    embed.addField("Partial Outage", "Some of our services are not working.");
-                } else if (isPerformance) {
-                    embed.addField("Performance Issues", "Our servers seem to be a little bit overloaded!");
                 } else {
                     embed.addField("Operational", "All is working fine, maybe it's an issue on your end?");
                 }
