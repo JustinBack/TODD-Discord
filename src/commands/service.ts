@@ -31,7 +31,7 @@ module.exports = {
                 }, 1000);
             })();
 
-            request("https://beta.tosdr.org/api/2/" + message.argument + ".json", function (error, response, body) {
+            request("https://api.tosdr.org/v2/service/" + message.argument + ".json", function (error, response, body) {
                 if (error) {
                     throw Error(error.message);
                 }
@@ -60,12 +60,12 @@ module.exports = {
                 const embed = new MessageEmbed()
                     .setColor('#0099ff')
                     .setTitle(json.parameters.name)
-                    .setURL('https://beta.tosdr.org/en/service/' + json.parameters.id)
+                    .setURL('https://tosdr.org/en/service/' + json.parameters.id)
                     .setDescription(`${json.parameters.name} has \`${Object.keys(json.parameters.links).length}\` Documents and \`${json.parameters.points.length}\` Points`)
-                    .setImage('https://beta.tosdr.org/api/badgepng/' + json.parameters.slug)
+                    .setImage('https://shields.tosdr.org/' + json.parameters.slug + '.png')
                     .setThumbnail(json.parameters.image)
                     .setTimestamp()
-                    .setFooter("https://beta.tosdr.org/api/2/" + message.argument + ".json");
+                    .setFooter("https://api.tosdr.org/v2/service/" + message.argument + ".json");
 
                 for (var index in json.parameters.points.slice(0, 10)) {
 
