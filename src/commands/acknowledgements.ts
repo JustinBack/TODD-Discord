@@ -2,19 +2,18 @@ import { Command, messageObj, Permissions } from '../models';
 import { Client, MessageEmbed } from 'discord.js';
 
 module.exports = {
-    name: 'addservice',
-    description: 'Add a new service.',
-    syntax: ["- _Send our guides on how to add a service_"],
+    name: 'acknowledgements',
+    description: 'Or as most people call, "credits"',
+    syntax: ["- _All people who helped with the bot_"],
     Bitmask: Permissions.NONE,
-    RLPointsConsume: 2,
+    RLPointsConsume: 0,
     execute: (message: messageObj, bot: Client) => {
-
         const embed = new MessageEmbed()
             .setColor('#0099ff')
-            .setTitle("Add new service")
-            .setDescription(`To add a new service, refer to the links below`)
-            .addField("Request a service", "https://to.tosdr.org/request")
-            .addField("Guide: How-To Request a service", "https://jback.dev/x/CgBD")
+            .setTitle("T.O.D.D")
+            .setDescription(`People improving the bot`)
+            .addField("Chew", "Command suggestions", true)
+            .addField("Azara", "Pentest stuff", true)
             .setTimestamp();
 
         message.message.channel.send(embed).then(() => {

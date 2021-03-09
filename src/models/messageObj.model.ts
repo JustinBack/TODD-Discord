@@ -30,21 +30,22 @@ export class messageObj implements ImessageObj {
   };
   get argument() {
 
-    let _args = this.arguments;
-    _args.shift();
-    return _args.join(" ");
+
+    return this.arguments.join(" ");
   };
   get command() {
-    return this.arguments[0];
+    return this.data.split(" ")[0];
   };
   
   get commands() {
     return this._commands;
   };
   get arguments() {
-    return this.data.split(" ");
+    let _args = this.data.split(" ");
+    _args.shift();
+    return _args;
   };
   get data() {
-    return this.message.content.substr(process.env.BOT_PREFIX.length);
+    return this.message.content.substr(process.env.BOT_PREFIX.length +1);
   };
 }

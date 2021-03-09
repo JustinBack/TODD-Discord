@@ -1,17 +1,16 @@
-import { Command, messageObj } from '../models';
-import * as StripTags from 'striptags';
-import * as fs from "fs";
+import { Command, messageObj, Permissions } from '../models';
 import { Client, MessageEmbed } from 'discord.js';
-import { loadCommands } from '../utils/load-commands';
-import { Connection, Pool } from 'mysql';
+import { Pool } from 'mysql2';
+import { postModlog } from '../utils/modlog';
 
 module.exports = {
     name: 'poll',
     description: 'Create a new poll',
     invisible: false,
-    syntax: "poll {Channel} {PollName}",
+    syntax: ["`[channel:Channel Mention]` `[text:String]`"],
     RLPointsConsume: 0,
-    priviliged: true,
+    Bitmask: Permissions.MAKE_POLLS,
+    HomeGuildOnly: true,
     execute: (message: messageObj, bot: Client, database: Pool) => {
 
         if (message.message.channel.type == "dm") {
@@ -45,12 +44,12 @@ module.exports = {
                         msg.delete();
                         throw Error(err.message);
                     }
-                    msg.react("<:GoodToS:766156681649979423>")
-                        .then(() => msg.react("<:BadToS:766156681997582376>"))
-                        .then(() => msg.react("<:NeutralToS:766156682002300968>"))
+                    msg.react("<:GoodToS:815821338299072533>")
+                        .then(() => msg.react("<:BadToS:815821341264838656>"))
+                        .then(() => msg.react("<:NeutralToS:815821347074080799>"))
                         .catch((reacterror) => {
                             msg.delete().then(() => {
-                                database.query("DELETE FROM POLLS WHERE MessageID = ?", [msg.id]);
+                                database.query("DELETE FROM Polls WHERE MessageID = ?", [msg.id]);
                                 throw Error(reacterror.message);
                             });
                         })
@@ -69,6 +68,7 @@ module.exports = {
                             msg.edit(embed).catch((err) => {
                                 throw Error(err.message);
                             });
+                            postModlog(message, message.message.author, "Created A poll in <#" + channel.id + ">");
                         });
                 });
             });

@@ -1,15 +1,13 @@
-import { Command, messageObj } from '../models';
-import * as StripTags from 'striptags';
-import * as fs from "fs";
-import { Client, MessageEmbed, TextChannel } from 'discord.js';
-import { loadCommands } from '../utils/load-commands';
+import { Command, messageObj, Permissions } from '../models';
+import { Client, TextChannel } from 'discord.js';
 
 module.exports = {
     name: 'invite',
     description: 'Get an invite to the ToS;DR Server',
-    syntax: "invite",
+    syntax: ["- _Invite link_"],
     RLPointsConsume: 100,
-    priviliged: false,
+    Bitmask: Permissions.NONE,
+    ExternalGuildOnly: true,
     execute: (message: messageObj, bot: Client) => {
 
 

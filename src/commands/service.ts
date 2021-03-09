@@ -1,15 +1,13 @@
-import { Command, messageObj } from '../models';
-import * as StripTags from 'striptags';
-import * as fs from "fs";
+import { Command, messageObj, Permissions } from '../models';
 import { Client, MessageEmbed } from 'discord.js';
 import request = require('request');
 
 module.exports = {
     name: 'service',
     description: 'Search for a service',
-    syntax: "service {Query}",
+    syntax: ["`[service_id:Integer]` - _Lookup a service via ID_", "`[service_slug:String]` - _Lookup a service via Slug_"],
     RLPointsConsume: 40,
-    priviliged: false,
+    Bitmask: Permissions.NONE,
     execute: (message: messageObj, bot: Client) => {
 
 
@@ -31,7 +29,7 @@ module.exports = {
                 }, 1000);
             })();
 
-            request("https://api.tosdr.org/v2/service/" + message.argument + ".json", function (error, response, body) {
+            request("https://tosdr.org/api/v2/service/" + message.argument + ".json", function (error, response, body) {
                 if (error) {
                     throw Error(error.message);
                 }
@@ -65,7 +63,7 @@ module.exports = {
                     .setImage('https://shields.tosdr.org/' + json.parameters.slug + '.png')
                     .setThumbnail(json.parameters.image)
                     .setTimestamp()
-                    .setFooter("https://api.tosdr.org/v2/service/" + message.argument + ".json");
+                    .setFooter("https://tosdr.org/api/v2/service/" + message.argument + ".json");
 
                 for (var index in json.parameters.points.slice(0, 10)) {
 

@@ -1,17 +1,18 @@
-import { Command, messageObj } from '../models';
-import * as StripTags from 'striptags';
-import * as fs from "fs";
+import { Command, messageObj, Permissions } from '../models';
 import { Client, MessageEmbed } from 'discord.js';
-import { loadCommands } from '../utils/load-commands';
+import { Pool } from 'mysql2';
 
 module.exports = {
     name: 'help',
     description: 'This screen',
-    syntax: "help {PageNumber}",
+    syntax: ["- _Overview of all commands_", "`[command:String]`", "`[page:Integer]`"],
     RLPointsConsume: 0,
-    priviliged: false,
-    execute: (message: messageObj, bot: Client) => {
+    Bitmask: Permissions.NONE,
+    execute: async (message: messageObj, bot: Client, database: Pool) => {
 
+
+        let CurrentUser: any = await database.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.message.author.id]);
+        CurrentUser = CurrentUser[0][0];
 
         function paginate(arr: Array<any>, size: number) {
             return arr.reduce((acc, val, i) => {
@@ -38,12 +39,16 @@ module.exports = {
             let commandArray = Array<any>();
 
             message.commands.forEach(function (command: Command) {
-                if (command.priviliged && !message.message.member.roles.cache.some(r => process.env.GUILD_PRIV_ROLES.split(",").includes(r.id))) {
-                    return;
-                }
-                if (!command.invisible) {
-                    commandArray.push(command);
-                }
+                if (command.invisible) return;
+                if (command.Bitmask !== 0 && !CurrentUser) return;
+                if (command.Bitmask !== 0 && !(CurrentUser["Bitmask"] & command.Bitmask)) return;
+                if (command.HomeGuildOnly && message.message.guild.id !== process.env.GUILD_HOME) return;
+                if (command.ExternalGuildOnly && message.message.guild.id === process.env.GUILD_HOME) return;
+                if (command.GuildOnly && message.message.channel.type == "dm") return;
+                if (command.DMOnly && message.message.channel.type != "dm") return;
+
+                commandArray.push(command);
+
             });
             let pages = paginate(commandArray, 6);
 
@@ -57,14 +62,7 @@ module.exports = {
 
             pages[page].forEach(function (command: Command) {
                 if (!command.invisible) {
-                    if (command.priviliged && !message.message.member.roles.cache.some(r => process.env.GUILD_PRIV_ROLES.split(",").includes(r.id))) {
-                        return;
-                    }
-                    if (command.priviliged) {
-                        embed.addField("__" + process.env.BOT_PREFIX + command.name + "__", "**PRIVILIGED** " + command.description);
-                    } else {
-                        embed.addField("__" + process.env.BOT_PREFIX + command.name + "__", command.description);
-                    }
+                    embed.addField(`0x${command.Bitmask.toString(16)} | __${process.env.BOT_PREFIX} ${command.name}__`, `${command.description}`);
                 }
             });
 
@@ -82,23 +80,20 @@ module.exports = {
                 });
                 return;
             }
-            if (command.priviliged && !message.message.member.roles.cache.some(r => process.env.GUILD_PRIV_ROLES.split(",").includes(r.id))) {
-                message.message.channel.send("You cannot access this command!").catch((err) => {
-                    throw Error(err.message);
-                });
-                return;
+
+            let usage = "";
+
+
+            for (var i in command.syntax) {
+                usage += `**${process.env.BOT_PREFIX}** __${command.name}__ ${command.syntax[i]}\n`;
             }
 
             const embed = new MessageEmbed()
                 .setColor('#0099ff')
-                .setTitle(process.env.BOT_PREFIX + command.name)
+                .setTitle(`0x${command.Bitmask.toString(16)} | ${process.env.BOT_PREFIX} ${command.name}`)
                 .setDescription(command.description)
-                .addField("Usage", process.env.BOT_PREFIX + command.syntax);
-
-            if (command.priviliged) {
-                embed.addField("Privileged command", "This command can only be executed by predefined roles");
-            }
-
+                .addField("Usage", usage)
+                .addField("Bitmask", `\`${Object.keys(Permissions).find(key => Permissions[key] === command.Bitmask)}: 0x${command.Bitmask.toString(16)}\``);
             message.message.channel.send(embed).catch((err) => {
                 throw Error(err.message);
             });

@@ -1,13 +1,13 @@
 import { loadCommands } from './utils/load-commands';
 import * as process from 'process';
-import * as mysql from 'mysql';
+import * as mysql from 'mysql2';
 import * as dotenv from 'dotenv';
 import * as redis from 'redis';
 import * as color from 'chalk';
 import { v4 as uuidv4 } from 'uuid';
 import * as RateLimit from 'rate-limiter-flexible';
 import * as Discord from 'discord.js';
-import { messageObj } from './models';
+import { messageObj, Permissions } from './models';
 import { exec } from 'child_process';
 import { MessageEmbed } from 'discord.js';
 import * as crypto from 'crypto';
@@ -16,7 +16,6 @@ import { serializeError } from 'serialize-error';
 
 console.log(color.blue("********************** Initializing ************************"));
 
-export const commands = loadCommands();
 export const bot = new Discord.Client({ partials: ['CHANNEL', 'MESSAGE', 'REACTION'] });
 
 dotenv.config({
@@ -66,7 +65,7 @@ bot.on('ready', () => {
     bot.user.setPresence({
         status: 'online',
         activity: {
-            name: 'in chat for ' + process.env.BOT_PREFIX + "help",
+            name: 'in chat for ' + process.env.BOT_PREFIX + " help",
             type: 'WATCHING'
         }
     });
@@ -74,19 +73,6 @@ bot.on('ready', () => {
 
 
 console.log(color.green(`Connection to Master MySQL Server established on DB ${color.cyan(process.env.MYSQL_HOST)}`));
-
-
-bot.on('guildMemberAdd', async (member) => {
-    if (member.guild.id == process.env.GUILD_HOME) {
-        let role = member.guild.roles.cache.get(process.env.WELCOME_ROLE);
-
-        if (!role) {
-            console.error('Role not found');
-            return;
-        }
-        member.roles.add(role);
-    }
-});
 
 bot.on('messageReactionRemove', async (reaction, user) => {
 
@@ -103,7 +89,7 @@ bot.on('messageReactionRemove', async (reaction, user) => {
         return;
     }
 
-    dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, rows) {
+    dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, rows: any) {
 
         if (err) {
             console.log(err);
@@ -157,7 +143,7 @@ bot.on('messageReactionAdd', async (reaction, user) => {
     }
     const userReactions = reaction.message.reactions.cache.filter(reaction => reaction.users.cache.has(user.id));
 
-    dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, Pollrows) {
+    dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, Pollrows: any) {
 
         if (Pollrows.length == 0) {
             return;
@@ -170,7 +156,7 @@ bot.on('messageReactionAdd', async (reaction, user) => {
             return;
         }
 
-        dbmaster.query("SELECT * FROM Reactions WHERE MessageID = ? AND UserID = ?", [reaction.message.id, user.id], async function (err, rows) {
+        dbmaster.query("SELECT * FROM Reactions WHERE MessageID = ? AND UserID = ?", [reaction.message.id, user.id], async function (err, rows: any) {
 
             if (err) {
                 console.log(err);
@@ -216,6 +202,8 @@ bot.on('messageReactionAdd', async (reaction, user) => {
     });
 });
 
+export const commands = loadCommands();
+
 
 bot.on('message', async message => {
 
@@ -228,11 +216,26 @@ bot.on('message', async message => {
         }
     }
 
+    if (message.guild.id === process.env.GUILD_HOME) {
+        let rows: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
+
+        if (rows[0].length !== 0) {
+            let Account = rows[0][0];
+
+            if (Account["Bitmask"] & Permissions.USER_DISCOURAGED) {
+                message.delete();
+                return
+            }
+        }
+    }
+
+
     if (!message.content.startsWith(process.env.BOT_PREFIX)) {
         return;
     }
 
     let _messageObj = new messageObj(message, commands);
+    _messageObj.message.channel.startTyping();
 
     try {
 
@@ -240,53 +243,71 @@ bot.on('message', async message => {
         let execCommand = commands.get(_messageObj.command);
 
         if (!execCommand) {
-            return _messageObj.message.channel.send("This command does not exist, try using our help for a list of available commands!");
+            const embed = new MessageEmbed()
+                .setColor('#0099ff')
+                .setTitle(process.env.BOT_PREFIX + " " + _messageObj.command)
+                .setDescription(`This command does not exist, try using our \`${process.env.BOT_PREFIX} help\` command for a list of available commands`);
+            return _messageObj.message.channel.send(embed);
         }
 
+        if (execCommand.Bitmask !== 0) {
+            let rows: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
 
-        if (execCommand.priviliged && message.channel.type == "dm") {
-            message.channel.send("You cannot run this in DMs!");
-            return;
+            if (rows[0].length === 0) {
+                const embed = new MessageEmbed()
+                    .setColor('#0099ff')
+                    .setTitle("Missing Bitmask Account")
+                    .setDescription(`Your account does not have a bitmask assigned. Contact Staff`);
+                return _messageObj.message.channel.send(embed);
+            }
+
+            let Account = rows[0][0];
+
+            if (!(Account["Bitmask"] & execCommand.Bitmask)) {
+                const embed = new MessageEmbed()
+                    .setColor('#0099ff')
+                    .setTitle("Missing Permissions")
+                    .setDescription(`\`\`\`${Object.keys(Permissions).find(key => Permissions[key] === execCommand.Bitmask)}: ${execCommand.Bitmask}\`\`\``);
+                message.channel.send(embed);
+                return;
+            }
         }
 
-        if (execCommand.priviliged && message.guild.id != process.env.GUILD_HOME) {
-
-            bot.guilds.fetch(process.env.GUILD_HOME)
-                .then(guild => {
-
-                    if (process.env.GUILD_INVITE_CHANNEL.length == 0) {
-                        message.channel.send("No channel has been set in the homeserver");
-                        return;
-                    }
-                    bot.channels.fetch(process.env.GUILD_INVITE_CHANNEL)
-                        .then(channel => {
-                            message.channel.send("This command can only be run in the ToS;DR Server!")
-                                .then(() => {
-                                    (channel as Discord.TextChannel).createInvite({
-                                        reason: "Priviliged command executed outside of server",
-                                        unique: true
-                                    }).then(invite => {
-                                        (message.channel).send(invite.url);
-                                    });
-                                });
-                        }).catch(() => {
-                            message.channel.send("Failed to fetch channel!");
-                        });
-                })
-                .catch(() => {
-                    message.channel.send("No homeserver has been set!");
-                });
+        if (execCommand.HomeGuildOnly && _messageObj.message.guild.id !== process.env.GUILD_HOME) {
+            const embed = new MessageEmbed()
+                .setColor('#0099ff')
+                .setTitle("Invalid Server")
+                .setDescription(`This Command cannot be run on this server`);
+            _messageObj.message.channel.send(embed);
             return;
-        } else if (execCommand.priviliged && !message.member.roles.cache.some(r => process.env.GUILD_PRIV_ROLES.split(",").includes(r.id))) {
-            message.channel.send("You do not have permissions to run this command!");
+        } else if (execCommand.ExternalGuildOnly && _messageObj.message.guild.id === process.env.GUILD_HOME) {
+            const embed = new MessageEmbed()
+                .setColor('#0099ff')
+                .setTitle("Invalid Server")
+                .setDescription(`This Command cannot be run on this server`);
+            _messageObj.message.channel.send(embed);
+            return;
+        } else if (execCommand.DMOnly && _messageObj.message.channel.type !== "dm") {
+            const embed = new MessageEmbed()
+                .setColor('#0099ff')
+                .setTitle("Invalid Channel Type")
+                .setDescription(`This Command can only be run from DMs!`);
+            _messageObj.message.channel.send(embed);
+            return;
+        } else if (execCommand.GuildOnly && _messageObj.message.channel.type !== "text") {
+            const embed = new MessageEmbed()
+                .setColor('#0099ff')
+                .setTitle("Invalid Channel Type")
+                .setDescription(`This Command can only be run from Guild Text Channels!`);
+            _messageObj.message.channel.send(embed);
             return;
         }
-
 
 
         rateLimiter.consume(_messageObj.message.author.id + "_" + _messageObj.command, execCommand.RLPointsConsume)
             .then(() => {
                 execCommand.execute(_messageObj, bot, dbmaster);
+                _messageObj.message.channel.stopTyping(true);
             })
             .catch((exception) => {
 
@@ -315,11 +336,13 @@ bot.on('message', async message => {
                     .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
                     .setTimestamp();
                 message.channel.send(embed);
+                _messageObj.message.channel.stopTyping(true);
 
             });
 
     } catch (error) {
 
+        _messageObj.message.channel.stopTyping(true);
         message.channel.send("An error has occurred!");
         console.log(color.red("[ERROR]", color.magenta(`<${_messageObj.command}>`), color.yellow(error), error.stack));
     }

@@ -2,13 +2,14 @@ import { Command, messageObj, Permissions } from '../models';
 import { Client } from 'discord.js';
 
 module.exports = {
-	name: 'crash',
-	description: ':(',
+	name: 'debug',
+	description: 'Hello',
 	invisible: true,
-	syntax: ["- _Crashes me :-(_"],
+	syntax: ["- _Useful for development_"],
 	RLPointsConsume: 0,
-	Bitmask: Permissions.CRASH_BOT,
+	Bitmask: Permissions.NONE,
 	execute: (message: messageObj, bot: Client) => {
-		throw Error("Big oof for this bot");
+		console.log(Permissions);
+		message.message.channel.send("Console :-)");
 	},
 } as Command;

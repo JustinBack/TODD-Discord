@@ -1,11 +1,11 @@
-import { Command, messageObj } from '../models';
+import { Command, messageObj, Permissions } from '../models';
 import { Client, MessageEmbed } from 'discord.js';
 
 module.exports = {
     name: 'bugreport',
     description: 'Submit a bug to us!',
-    syntax: "bugreport",
-    priviliged: false,
+    syntax: ["- _Sends Bug report links_"],
+    Bitmask: Permissions.NONE,
     RLPointsConsume: 2,
     execute: (message: messageObj, bot: Client) => {
         const embed = new MessageEmbed()

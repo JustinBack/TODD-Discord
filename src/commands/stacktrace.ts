@@ -1,14 +1,14 @@
-import { Command, messageObj } from '../models';
-import { Client, MessageEmbed } from 'discord.js';
+import { Command, messageObj, Permissions } from '../models';
+import { Client } from 'discord.js';
 import * as crypto from 'crypto';
 
 module.exports = {
     name: 'stacktrace',
     description: 'Decrypt stacktraces',
     invisible: false,
-    syntax: "stacktrace {TraceString}",
+    syntax: ["`[stacktrace:String]`"],
     RLPointsConsume: 0,
-    priviliged: true,
+    Bitmask: Permissions.READ_STACKTRACE,
     execute: (message: messageObj, bot: Client) => {
 
         let Crypt = message.argument.split(".");

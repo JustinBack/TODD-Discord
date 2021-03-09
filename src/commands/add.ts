@@ -1,15 +1,13 @@
-import { Command, messageObj } from '../models';
-import * as StripTags from 'striptags';
-import * as fs from "fs";
+import { Command, messageObj, Permissions } from '../models';
 import { Client, MessageEmbed } from 'discord.js';
-import { loadCommands } from '../utils/load-commands';
 
 module.exports = {
     name: 'add',
     description: 'Add me to your server',
-    syntax: "add",
+    syntax: ["- _Sends integration link_"],
     RLPointsConsume: 0,
-    priviliged: false,
+    Bitmask: Permissions.NONE,
+    DMOnly: true,
     execute: (message: messageObj, bot: Client) => {
 
         bot.generateInvite({

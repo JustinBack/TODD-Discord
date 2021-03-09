@@ -1,11 +1,11 @@
-import { Command, messageObj } from '../models';
+import { Command, messageObj, Permissions } from '../models';
 import { Client, MessageEmbed } from 'discord.js';
 
 module.exports = {
     name: 'version',
     description: 'Get the current version of the bot',
-    syntax: "version",
-    priviliged: false,
+    syntax: ["- _Prints useful info_"],
+    Bitmask: Permissions.NONE,
     RLPointsConsume: 2,
     execute: (message: messageObj, bot: Client) => {
         var pjson = require(__dirname + '/../package.json');

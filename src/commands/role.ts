@@ -1,37 +1,15 @@
-import { Command, messageObj } from '../models';
-import * as StripTags from 'striptags';
-import * as fs from "fs";
+import { Command, messageObj, Permissions } from '../models';
 import { Client, MessageEmbed } from 'discord.js';
-import { loadCommands } from '../utils/load-commands';
 
 module.exports = {
     name: 'role',
     description: 'Assign yourself a role!',
-    syntax: "role {RoleName}",
+    syntax: ["- _List all Roles_", "`[role_name:String]` - de-/assign a role"],
     RLPointsConsume: 0,
-    priviliged: false,
+    Bitmask: Permissions.NONE,
+    HomeGuildOnly: true,
     execute: (message: messageObj, bot: Client) => {
         let availableRoles = process.env.GUILD_ASSIGN_ROLES.split(",");
-
-
-        if (message.message.channel.type == "dm") {
-            const embed = new MessageEmbed()
-                .setColor('#0099ff')
-                .setTitle('Uhhhh')
-                .setImage('https://justinback.jbcdn.net/captures/firefox_DWJSg0xmV2.png');
-
-            message.message.channel.send(embed);
-            return;
-        }
-        if (message.message.guild.id != process.env.GUILD_HOME) {
-            const embed = new MessageEmbed()
-                .setColor('#0099ff')
-                .setTitle('Uhhhh, on the ToS;DR Server??')
-                .setImage('https://justinback.jbcdn.net/captures/firefox_DWJSg0xmV2.png');
-
-            message.message.channel.send(embed);
-            return;
-        }
 
         if (message.argument.length == 0) {
             function paginate(arr: Array<any>, size: number) {
@@ -63,15 +41,27 @@ module.exports = {
             }
 
             embed.setFooter(`Page ${page + 1}/${pages.length}`);
-
+            embed.addField("ToS;DR Staff", process.env.BOT_PREFIX + " role admin");
 
             pages[page].forEach(function (role: string) {
-                embed.addField(role, process.env.BOT_PREFIX + "role " + role);
+                embed.addField(role, process.env.BOT_PREFIX + " role " + role);
             });
 
             message.message.channel.send(embed).then(() => {
                 return true;
             }).catch((err) => {
+                throw Error(err.message);
+            });
+            return;
+        }
+
+        if (message.argument == "admin") {
+            const embed = new MessageEmbed()
+                .setColor('#0099ff')
+                .setTitle('Additional authorization required')
+                .setDescription('[Grant Access](https://forum.tosdr.org/grant_admin)');
+
+            message.message.channel.send(embed).catch((err) => {
                 throw Error(err.message);
             });
             return;
