@@ -42,8 +42,8 @@ module.exports = {
                 if (command.invisible) return;
                 if (command.Bitmask !== 0 && !CurrentUser) return;
                 if (command.Bitmask !== 0 && !(CurrentUser["Bitmask"] & command.Bitmask)) return;
-                if (command.HomeGuildOnly && message.message.guild.id !== process.env.GUILD_HOME) return;
-                if (command.ExternalGuildOnly && message.message.guild.id === process.env.GUILD_HOME) return;
+                if (command.HomeGuildOnly && (message.message.guild && message.message.guild.id !== process.env.GUILD_HOME)) return;
+                if (command.ExternalGuildOnly && (message.message.guild && message.message.guild.id === process.env.GUILD_HOME)) return;
                 if (command.GuildOnly && message.message.channel.type == "dm") return;
                 if (command.DMOnly && message.message.channel.type != "dm") return;
 

@@ -12,7 +12,7 @@ module.exports = {
     execute: (message: messageObj, bot: Client) => {
         const user = message.message.mentions.users.first();
 
-        if (message.arguments.length < 3) {
+        if (message.arguments.length < 2) {
             return message.message.reply("You did not mention a reason for the ban!");
         }
 
@@ -25,6 +25,8 @@ module.exports = {
         if (user) {
             const member = message.message.guild.member(user);
             if (member) {
+
+                user.send(`Hi there, just a heads up: You have been banned from ${message.message.guild.name} \n\nreason:\n${banreason}`);
                 member.ban({ reason: banreason })
                     .then(() => {
                         postModlog(message, message.message.author, `Banned ${user}\nreason:\n${banreason}`);

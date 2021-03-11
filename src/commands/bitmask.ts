@@ -11,7 +11,7 @@ module.exports = {
 	syntax: ["- _Lookup your bitmask_", "`[user:User Mention]` - _Lookup another users bitmask_", "`[user:User Mention]` `[bitmask:Integer64]` - _Set the bitmask of another user._"],
 	RLPointsConsume: 0,
 	Bitmask: Permissions.NONE,
-	HomeGuildOnly: true,
+	HomeGuildOnly: false,
 	execute: async (message: messageObj, bot: Client, database: Pool) => {
 
 		if (message.arguments.length === 1) {

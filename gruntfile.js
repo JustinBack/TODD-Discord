@@ -19,15 +19,14 @@ module.exports = function (grunt) {
                         nonull: true,
                         src: 'src/.env.example',
                         dest: 'build/.env.example',
-                    },
-                    {
-                        nonull: true,
-                        src: 'package.json',
-                        dest: 'src/package.json',
                     }, {
                         nonull: true,
                         src: 'package.json',
                         dest: 'build/package.json',
+                    }, {
+                        nonull: true,
+                        src: 'package-lock.json',
+                        dest: 'build/package-lock.json',
                     }
                 ]
             },

@@ -1,6 +1,11 @@
 import { Command, messageObj, Permissions } from '../models';
 import { Client } from 'discord.js';
 
+
+if (!process.env.DEV_MODE) {
+	throw new Error("DEV_MODE is false. Skipping");
+}
+
 module.exports = {
 	name: 'debug',
 	description: 'Hello',

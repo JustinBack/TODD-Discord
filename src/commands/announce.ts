@@ -26,7 +26,7 @@ module.exports = {
             .setTitle("Server Announcement")
             .setDescription(message.arguments.join(" "))
             .setTimestamp();
-        channel.send(message.message.guild.roles.everyone.id, { embed }).then(() => {
+        channel.send(`@everyone`, { embed }).then(() => {
             message.message.delete();
             postModlog(message, message.message.author, "Posted an announcement\n\ntext:\n" + message.arguments.join(" "))
         });

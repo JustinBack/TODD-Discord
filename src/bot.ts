@@ -12,9 +12,17 @@ import { exec } from 'child_process';
 import { MessageEmbed } from 'discord.js';
 import * as crypto from 'crypto';
 import { serializeError } from 'serialize-error';
+import * as util from 'util';
+
 
 
 console.log(color.blue("********************** Initializing ************************"));
+
+// @ts-ignore
+if (process[Symbol.for("ts-node.register.instance")]) {
+    process.env.DEV_MODE = "true";
+    console.log(color.yellow("WARNING: Development Environment"));
+}
 
 export const bot = new Discord.Client({ partials: ['CHANNEL', 'MESSAGE', 'REACTION'] });
 
@@ -28,7 +36,9 @@ var dbmaster = mysql.createPool({
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USERNAME,
     password: process.env.MYSQL_PASSWORD,
-    database: process.env.MYSQL_DATABASE
+    database: process.env.MYSQL_DATABASE,
+    supportBigNumbers: true,
+    bigNumberStrings: true
 });
 
 
@@ -206,6 +216,7 @@ export const commands = loadCommands();
 
 
 bot.on('message', async message => {
+    if (message.author.bot) return;
 
     if (message.partial) {
         try {
@@ -216,11 +227,11 @@ bot.on('message', async message => {
         }
     }
 
-    if (message.guild.id === process.env.GUILD_HOME) {
-        let rows: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
+    if (message.guild && message.guild.id === process.env.GUILD_HOME) {
+        let Bitmasks: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
 
-        if (rows[0].length !== 0) {
-            let Account = rows[0][0];
+        if (Bitmasks[0].length !== 0) {
+            let Account = Bitmasks[0][0];
 
             if (Account["Bitmask"] & Permissions.USER_DISCOURAGED) {
                 message.delete();
@@ -231,11 +242,60 @@ bot.on('message', async message => {
 
 
     if (!message.content.startsWith(process.env.BOT_PREFIX)) {
+
+
+        let Bitmasks: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
+
+        Bitmasks = (Bitmasks[0].length === 0 ? [[{ "Bitmask": 0 }]] : Bitmasks);
+
+        if (Bitmasks[0].length !== 0) {
+            let Account = Bitmasks[0][0];
+
+            if (!(Account["Bitmask"] & Permissions.SKIP_ROLEMENTIONS)) {
+                let RoleMentions: any = await dbmaster.promise().query("SELECT * FROM RoleMentions");
+                if (RoleMentions[0].length > 0) {
+                    if (message.mentions.roles.size > 0) {
+                        let role: any = message.mentions.roles.first();
+
+                        if (role) {
+                            let roleRow = RoleMentions[0].filter(function (obj: any) {
+                                return Object.keys(obj).some(function (key: any) {
+                                    return obj[key].includes(role.id);
+                                })
+                            })[0];
+                            if (roleRow) {
+                                message.channel.send(roleRow.Text);
+                            }
+
+                        }
+                    }
+                }
+            }
+            if (!(Account["Bitmask"] & Permissions.SKIP_CHATBOT)) {
+                let ChatBot: any = await dbmaster.promise().query("SELECT * FROM BotChat");
+                if (ChatBot[0].length > 0) {
+                    if (message.guild && message.guild.id === process.env.GUILD_HOME) {
+                        for (var i in ChatBot[0]) {
+                            let row = ChatBot[0][i];
+                            if (message.content.includes(row.Keywords)) {
+                                const embed = new MessageEmbed()
+                                    .setColor('#0099ff')
+                                    .setTitle("Frequently Asked Questions")
+                                    .setDescription(row.Response);
+                                return message.channel.send(embed);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
         return;
     }
 
     let _messageObj = new messageObj(message, commands);
-    _messageObj.message.channel.startTyping();
+    //_messageObj.message.channel.startTyping();
 
     try {
 
@@ -303,11 +363,12 @@ bot.on('message', async message => {
             return;
         }
 
+        console.log("Received command");
 
         rateLimiter.consume(_messageObj.message.author.id + "_" + _messageObj.command, execCommand.RLPointsConsume)
             .then(() => {
                 execCommand.execute(_messageObj, bot, dbmaster);
-                _messageObj.message.channel.stopTyping(true);
+                //_messageObj.message.channel.stopTyping(true);
             })
             .catch((exception) => {
 
@@ -336,13 +397,13 @@ bot.on('message', async message => {
                     .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
                     .setTimestamp();
                 message.channel.send(embed);
-                _messageObj.message.channel.stopTyping(true);
+                //_messageObj.message.channel.stopTyping(true);
 
             });
 
     } catch (error) {
 
-        _messageObj.message.channel.stopTyping(true);
+        //_messageObj.message.channel.stopTyping(true);
         message.channel.send("An error has occurred!");
         console.log(color.red("[ERROR]", color.magenta(`<${_messageObj.command}>`), color.yellow(error), error.stack));
     }

@@ -25,6 +25,8 @@ module.exports = {
         if (user) {
             const member = message.message.guild.member(user);
             if (member) {
+
+                user.send(`Hi there, just a heads up: You have been kicked from ${message.message.guild.name} \n\nreason:\n${banreason}`);
                 member.kick(banreason)
                     .then(() => {
                         postModlog(message, message.message.author, `Kicked ${user}\nreason:\n${banreason}`);

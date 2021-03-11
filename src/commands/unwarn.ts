@@ -3,8 +3,8 @@ import { postModlog } from '../utils/modlog';
 import { Client, MessageEmbed } from 'discord.js';
 
 module.exports = {
-    name: 'warn',
-    description: `Warn a user`,
+    name: 'unwarn',
+    description: `Unwarns a user`,
     syntax: ["`[user:User Mention]` `[reason:string]`"],
     Bitmask: Permissions.WARN_USERS,
     RLPointsConsume: 2,
@@ -52,11 +52,11 @@ module.exports = {
         const user = message.message.mentions.users.first();
 
         if (message.arguments.length < 1) {
-            return message.message.reply("You did not mention a user for the warning!");
+            return message.message.reply("You did not mention a user for the unwarning!");
         }
 
         if (message.arguments.length < 2) {
-            return message.message.reply("You did not mention a reason for the warning!");
+            return message.message.reply("You did not mention a reason for the unwarning!");
         }
 
         let shiftedargs = message.arguments;
@@ -70,22 +70,33 @@ module.exports = {
             if (member) {
                 if (member.roles.cache.has(WarningOneRole.id)) {
                     member.roles.remove(WarningOneRole).then(() => {
-                        member.roles.add(WarningTwoRole).then(() => {
-                            message.message.channel.send(`${user} is now on ${WarningTwoRole}`);
-                            postModlog(message, message.message.author, `Warned ${user} on ${WarningTwoRole}\n\n${warnreason}`);
-                            user.send(`Hi there, just a heads up: You have been warned on ${message.message.guild.name} at Tier 2.\n\nreason:\n${warnreason}`);
+
+                        message.message.channel.send(`${user} has no more warnings`);
+                        postModlog(message, message.message.author, `Removed warnings for ${user}\n\n${warnreason}`);
+                        user.send(`Hi there, just a heads up: Your warnings on ${message.message.guild.name} have been removed.\n\nreason:\n${warnreason}`);
+                    }).catch((err) => {
+                        throw Error(err.message);
+                    });
+                } else if (member.roles.cache.has(WarningTwoRole.id)) {
+                    member.roles.remove(WarningTwoRole).then(() => {
+                        member.roles.add(WarningOneRole).then(() => {
+                            message.message.channel.send(`${user}: Lowered warning`);
+                            postModlog(message, message.message.author, `Lowered Warning of ${user} from ${WarningTwoRole} to ${WarningOneRole}\n\n${warnreason}`);
+
+                            user.send(`Hi there, just a heads up: Your Tier Two warning on ${message.message.guild.name} has been lowered to Tier One.\n\nreason:\n${warnreason}`);
                         }).catch((err) => {
                             throw Error(err.message);
                         });
                     }).catch((err) => {
                         throw Error(err.message);
                     });
-                } else if (member.roles.cache.has(WarningTwoRole.id)) {
-                    member.roles.remove(WarningTwoRole).then(() => {
-                        member.roles.add(WarningThreeRole).then(() => {
-                            message.message.channel.send(`${user} is now on ${WarningThreeRole}`);
-                            postModlog(message, message.message.author, `Warned ${user} on ${WarningThreeRole}\n\n${warnreason}`);
-                            user.send(`Hi there, just a heads up: You have been warned on ${message.message.guild.name} at Tier 3.\n\nreason:\n${warnreason}`);
+                } else if (member.roles.cache.has(WarningThreeRole.id)) {
+                    member.roles.remove(WarningThreeRole).then(() => {
+                        member.roles.add(WarningTwoRole).then(() => {
+                            message.message.channel.send(`${user}: Lowered warning`);
+                            postModlog(message, message.message.author, `Lowered Warning of ${user} from ${WarningThreeRole} to ${WarningTwoRole}\n\n${warnreason}`);
+
+                            user.send(`Hi there, just a heads up: Your Tier Three warning on ${message.message.guild.name} has been lowered to Tier Two.\n\nreason:\n${warnreason}`);
                         }).catch((err) => {
                             throw Error(err.message);
                         });
@@ -93,13 +104,7 @@ module.exports = {
                         throw Error(err.message);
                     });
                 } else {
-                    member.roles.add(WarningOneRole).then(() => {
-                        message.message.channel.send(`${user} is now on ${WarningOneRole}`);
-                        postModlog(message, message.message.author, `Warned ${user} on ${WarningOneRole}\n\n${warnreason}`);
-                        user.send(`Hi there, just a heads up: You have been warned on ${message.message.guild.name} at Tier 1.\n\nreason:\n${warnreason}`);
-                    }).catch((err) => {
-                        throw Error(err.message);
-                    });
+                    message.message.channel.send("This user has no warnings!");
                 }
             } else {
                 message.message.reply("That user is not on this server.");
