@@ -4,16 +4,20 @@ import { Pool } from 'mysql2';
 import * as util from 'util';
 const { Aki } = require("aki-api");
 
-const emojis = ["👍", "👎", "❔", "🤔", "🙄", "❌"];
+const emojis = ["GoodToS:815821338299072533", "BadToS:815821341264838656", "oldshrug:820075212196282389", "catthink:820062015628378122", "nooo:815821369287376977", "BlockerToS:815821343970426920"];
 const isPlaying = new Set();
 // https://github.com/TheMaestro0/Akinator-Bot/
 module.exports = {
     name: 'akinator',
     description: 'Can he guess it?',
     syntax: ["`[answer:String]` - Answer Akinators questions"],
+    RequiredEnvs: ["GUILD_HOME"],
     RLPointsConsume: 0,
     Bitmask: Permissions.NONE,
     execute: async (message: messageObj, bot: Client, database: Pool) => {
+
+
+        const HomeGuild = bot.guilds.cache.get(process.env.GUILD_HOME);
 
         if (isPlaying.has(message.message.author.id)) {
             return message.message.channel.send(":x: | The game already started..");
@@ -28,14 +32,25 @@ module.exports = {
         const msg = await message.message.channel.send(new MessageEmbed()
             .setTitle(`${message.message.author.username}, Question ${aki.currentStep + 1}`)
             .setColor("RANDOM")
-            .setDescription(`**${aki.question}**\n${aki.answers.map((an: any, i: any) => `${an} | ${emojis[i]}`).join("\n")}`));
+            .setDescription(`Hold on! I'm loading... Grab a coffee ☕`));
 
-        for (const emoji of emojis) await msg.react(emoji);
+        for (const emoji of emojis) {
 
-        const collector = msg.createReactionCollector((reaction: any, user: any) => emojis.includes(reaction.emoji.name) && user.id == message.message.author.id, {
+            let emojiResolv = HomeGuild.emojis.cache.get(emoji.split(":")[1]);
+            await msg.react(emojiResolv);
+        }
+
+
+
+        const collector = msg.createReactionCollector((reaction: any, user: any) => emojis.includes(reaction.emoji.name + ":" + reaction.emoji.id) && user.id == message.message.author.id, {
             time: 60000 * 6
         });
 
+
+        msg.edit(new MessageEmbed()
+            .setTitle(`${message.message.author.username}, Question ${aki.currentStep + 1}`)
+            .setColor("RANDOM")
+            .setDescription(`**${aki.question}**\n${aki.answers.map((an: any, i: any) => `${an} | <:${emojis[i]}>`).join("\n")}`));
         collector
             .on("end", () => isPlaying.delete(message.message.author.id))
             .on("collect", async ({
@@ -44,9 +59,9 @@ module.exports = {
             }) => {
                 users.remove(message.message.author).catch(() => null);
 
-                if (emoji.name == "❌") return collector.stop();
+                if (emoji.id == emojis[5].split(":")[1]) return collector.stop();
 
-                await aki.step(emojis.indexOf(emoji.name));
+                await aki.step(emojis.indexOf(emoji.name + ":" + emoji.id));
 
                 if (aki.progress >= 70 || aki.currentStep >= 78) {
 
@@ -79,7 +94,7 @@ module.exports = {
                     msg.edit(new MessageEmbed()
                         .setTitle(`${message.message.author.username}, Question ${aki.currentStep + 1}`)
                         .setColor("RANDOM")
-                        .setDescription(`**${aki.question}**\n${aki.answers.map((an: any, i: any) => `${an} | ${emojis[i]}`).join("\n")}`));
+                        .setDescription(`**${aki.question}**\n${aki.answers.map((an: any, i: any) => `${an} | <:${emojis[i]}>`).join("\n")}`));
                 }
             });
     },
