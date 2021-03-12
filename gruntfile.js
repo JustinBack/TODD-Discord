@@ -61,5 +61,10 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks("grunt-contrib-clean");
     grunt.loadNpmTasks('grunt-contrib-copy');
     grunt.loadNpmTasks("grunt-contrib-compress");
-    grunt.registerTask("default", ["clean", "ts", "copy:default", "compress", "copy:envToProd"]);
+    grunt.registerTask('compile_time', 'Prints the compile time to a file', function () {
+        var timestamp = new Date().toUTCString();
+        console.log("Compilation time is at " + timestamp);
+        grunt.file.write(__dirname + '/build/.compile_time', timestamp);
+    });
+    grunt.registerTask('default', ['clean', 'ts', 'copy:default', 'compile_time', 'compress', 'copy:envToProd']);
 };

@@ -29,7 +29,7 @@ module.exports = {
                 user.send(`Hi there, just a heads up: You have been banned from ${message.message.guild.name} \n\nreason:\n${banreason}`);
                 member.ban({ reason: banreason })
                     .then(() => {
-                        postModlog(message, message.message.author, `Banned ${user}\nreason:\n${banreason}`);
+                        postModlog(message.message.author, `Banned ${user}\nreason:\n${banreason}`);
                         message.message.reply(`${user.tag} has been banned!`);
                     })
                     .catch(err => {

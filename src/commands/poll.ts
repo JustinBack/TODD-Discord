@@ -68,7 +68,7 @@ module.exports = {
                             msg.edit(embed).catch((err) => {
                                 throw Error(err.message);
                             });
-                            postModlog(message, message.message.author, "Created A poll in <#" + channel.id + ">");
+                            postModlog(message.message.author, "Created A poll in <#" + channel.id + ">");
                         });
                 });
             });

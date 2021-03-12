@@ -1,4 +1,5 @@
 import { loadCommands } from './utils/load-commands';
+import { postModlog } from './utils/modlog';
 import * as process from 'process';
 import * as mysql from 'mysql2';
 import * as dotenv from 'dotenv';
@@ -9,11 +10,12 @@ import * as RateLimit from 'rate-limiter-flexible';
 import * as Discord from 'discord.js';
 import { messageObj, Permissions } from './models';
 import { exec } from 'child_process';
-import { MessageEmbed } from 'discord.js';
+import { MessageEmbed, TextChannel } from 'discord.js';
 import * as crypto from 'crypto';
 import { serializeError } from 'serialize-error';
 import * as util from 'util';
-
+import * as fs from 'fs';
+const AntiSpam = require('./utils/anti-spam');
 
 
 console.log(color.blue("********************** Initializing ************************"));
@@ -22,6 +24,8 @@ console.log(color.blue("********************** Initializing ********************
 if (process[Symbol.for("ts-node.register.instance")]) {
     process.env.DEV_MODE = "true";
     console.log(color.yellow("WARNING: Development Environment"));
+} else {
+    console.log("Compiled at", fs.readFileSync(__dirname + "/.compile_time", 'utf8'));
 }
 
 export const bot = new Discord.Client({ partials: ['CHANNEL', 'MESSAGE', 'REACTION'] });
@@ -42,6 +46,9 @@ var dbmaster = mysql.createPool({
 });
 
 
+const antiSpam = new AntiSpam({
+    mysql: dbmaster
+});
 
 const redisClient = redis.createClient(Number.parseInt(process.env.REDIS_PORT), process.env.REDIS_HOST, { enable_offline_queue: false });
 
@@ -71,6 +78,7 @@ console.log(color.green(`Connection to Redis Server established on DB Index ${co
 
 
 bot.on('ready', () => {
+
     console.log(`Logged in as ${bot.user.tag}!`);
     bot.user.setPresence({
         status: 'online',
@@ -79,10 +87,121 @@ bot.on('ready', () => {
             type: 'WATCHING'
         }
     });
+
+    let HomeGuild = bot.guilds.cache.get(process.env.GUILD_HOME);
+
+    let WarningOneRole = HomeGuild.roles.cache.get(process.env.GUILD_WARNING_ONE);
+    let WarningTwoRole = HomeGuild.roles.cache.get(process.env.GUILD_WARNING_TWO);
+    let WarningThreeRole = HomeGuild.roles.cache.get(process.env.GUILD_WARNING_THREE);
+
+    setInterval(async function () {
+        let [rows, fields]: any = await dbmaster.promise().query("SELECT * FROM Warnings WHERE (Timestamp < DATE_SUB(NOW(),INTERVAL ? MINUTE) AND Tier = 1) OR (Timestamp < DATE_SUB(NOW(),INTERVAL ? MINUTE) AND Tier = 2) OR (Timestamp < DATE_SUB(NOW(),INTERVAL ? MINUTE) AND Tier = 3)", [process.env.WARNING_ONE_EXPIRE, process.env.WARNING_TWO_EXPIRE, process.env.WARNING_THREE_EXPIRE]);
+
+
+        for (var i in rows) {
+            let row = rows[i];
+
+            if (row.Tier == 1) {
+                const member = HomeGuild.members.cache.get(row.ID);
+
+                if (!member) {
+                    await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ?", [row.ID]);
+                    continue;
+                }
+
+
+                postModlog(bot.user, `Tier 1 Warning for User <@${member.id}> expired, removed it.`);
+                member.roles.remove(WarningOneRole);
+            } else if (row.Tier == 2) {
+                const member = HomeGuild.members.cache.get(row.ID);
+
+                if (!member) {
+                    await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ?", [row.ID]);
+                    continue;
+                }
+                postModlog(bot.user, `Tier 2 Warning for User <@${member.id}> expired, removed it.`);
+                member.roles.remove(WarningTwoRole);
+            } else if (row.Tier == 3) {
+                const member = HomeGuild.members.cache.get(row.ID);
+
+                if (!member) {
+                    await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ?", [row.ID]);
+                    continue;
+                }
+                postModlog(bot.user, `Tier 3 Warning for User <@${member.id}> expired, removed it.`);
+                member.roles.remove(WarningThreeRole);
+            }
+        }
+
+    }, 5000);
+
 });
 
 
 console.log(color.green(`Connection to Master MySQL Server established on DB ${color.cyan(process.env.MYSQL_HOST)}`));
+
+
+bot.on('guildMemberUpdate', async (oldMember, newMember) => {
+
+
+
+
+    const channel = (newMember.guild.channels.cache.get(process.env.GUILD_ERRORS) as TextChannel);
+
+    if (!channel) return console.log("Cannot find channel!");
+
+    let WarningOneRole = newMember.guild.roles.cache.get(process.env.GUILD_WARNING_ONE);
+    let WarningTwoRole = newMember.guild.roles.cache.get(process.env.GUILD_WARNING_TWO);
+    let WarningThreeRole = newMember.guild.roles.cache.get(process.env.GUILD_WARNING_THREE);
+    if (oldMember.roles.cache.size < newMember.roles.cache.size) {
+        if (!oldMember.roles.cache.has(WarningOneRole.id) && newMember.roles.cache.has(WarningOneRole.id)) {
+            let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 1]);
+            if (!inserted) {
+                newMember.roles.remove(WarningOneRole);
+                channel.send(`I failed to give <@${newMember.id}> The tier one warning due to a database error. I have removed it.`);
+            }
+        }
+        if (!oldMember.roles.cache.has(WarningTwoRole.id) && newMember.roles.cache.has(WarningTwoRole.id)) {
+            let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 2]);
+            if (!inserted) {
+                newMember.roles.remove(WarningTwoRole);
+                channel.send(`I failed to give <@${newMember.id}> The tier two warning due to a database error. I have removed it.`);
+            }
+        }
+        if (!oldMember.roles.cache.has(WarningThreeRole.id) && newMember.roles.cache.has(WarningThreeRole.id)) {
+            let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 3]);
+            if (!inserted) {
+                newMember.roles.remove(WarningThreeRole);
+                channel.send(`I failed to give <@${newMember.id}> The tier three warning due to a database error. I have removed it.`);
+            }
+        }
+    }
+
+    if (oldMember.roles.cache.size > newMember.roles.cache.size) {
+        if (oldMember.roles.cache.has(WarningOneRole.id) && !newMember.roles.cache.has(WarningOneRole.id)) {
+            let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 1]);
+            if (!inserted) {
+                newMember.roles.add(WarningOneRole);
+                channel.send(`I failed to remove <@${newMember.id}> The tier one warning due to a database error. I have added it.`);
+            }
+        }
+        if (oldMember.roles.cache.has(WarningTwoRole.id) && !newMember.roles.cache.has(WarningTwoRole.id)) {
+            let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 2]);
+            if (!inserted) {
+                newMember.roles.add(WarningTwoRole);
+                channel.send(`I failed to remove <@${newMember.id}> The tier two warning due to a database error. I have added it.`);
+            }
+        }
+        if (oldMember.roles.cache.has(WarningThreeRole.id) && !newMember.roles.cache.has(WarningThreeRole.id)) {
+            let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 3]);
+            if (!inserted) {
+                newMember.roles.add(WarningThreeRole);
+                channel.send(`I failed to remove <@${newMember.id}> The tier three warning due to a database error. I have added it.`);
+            }
+        }
+    }
+
+});
 
 bot.on('messageReactionRemove', async (reaction, user) => {
 
@@ -216,6 +335,7 @@ export const commands = loadCommands();
 
 
 bot.on('message', async message => {
+    antiSpam.message(message);
     if (message.author.bot) return;
 
     if (message.partial) {

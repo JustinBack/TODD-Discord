@@ -28,7 +28,7 @@ module.exports = {
             .setTimestamp();
         channel.send(`@everyone`, { embed }).then(() => {
             message.message.delete();
-            postModlog(message, message.message.author, "Posted an announcement\n\ntext:\n" + message.arguments.join(" "))
+            postModlog(message.message.author, "Posted an announcement\n\ntext:\n" + message.arguments.join(" "))
         });
 
     },

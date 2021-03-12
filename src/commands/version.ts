@@ -46,6 +46,9 @@ module.exports = {
                 .addField("GUILD_WARNING_THREE", `<@&${process.env.GUILD_WARNING_THREE}>`, true)
                 .addField("PROCESS_VERSION", process.version, true)
                 .addField("MESSAGE_ID", message.id, true)
+        } else {
+            embed.addField("Compile Time", fs.readFileSync(__dirname + "/../.compile_time", 'utf8'), true);
+
         }
 
         return message.message.channel.send(embed).then(() => {

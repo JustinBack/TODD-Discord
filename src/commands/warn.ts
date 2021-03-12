@@ -72,7 +72,7 @@ module.exports = {
                     member.roles.remove(WarningOneRole).then(() => {
                         member.roles.add(WarningTwoRole).then(() => {
                             message.message.channel.send(`${user} is now on ${WarningTwoRole}`);
-                            postModlog(message, message.message.author, `Warned ${user} on ${WarningTwoRole}\n\n${warnreason}`);
+                            postModlog(message.message.author, `Warned ${user} on ${WarningTwoRole}\n\n${warnreason}`);
                             user.send(`Hi there, just a heads up: You have been warned on ${message.message.guild.name} at Tier 2.\n\nreason:\n${warnreason}`);
                         }).catch((err) => {
                             throw Error(err.message);
@@ -84,7 +84,7 @@ module.exports = {
                     member.roles.remove(WarningTwoRole).then(() => {
                         member.roles.add(WarningThreeRole).then(() => {
                             message.message.channel.send(`${user} is now on ${WarningThreeRole}`);
-                            postModlog(message, message.message.author, `Warned ${user} on ${WarningThreeRole}\n\n${warnreason}`);
+                            postModlog(message.message.author, `Warned ${user} on ${WarningThreeRole}\n\n${warnreason}`);
                             user.send(`Hi there, just a heads up: You have been warned on ${message.message.guild.name} at Tier 3.\n\nreason:\n${warnreason}`);
                         }).catch((err) => {
                             throw Error(err.message);
@@ -95,7 +95,7 @@ module.exports = {
                 } else {
                     member.roles.add(WarningOneRole).then(() => {
                         message.message.channel.send(`${user} is now on ${WarningOneRole}`);
-                        postModlog(message, message.message.author, `Warned ${user} on ${WarningOneRole}\n\n${warnreason}`);
+                        postModlog(message.message.author, `Warned ${user} on ${WarningOneRole}\n\n${warnreason}`);
                         user.send(`Hi there, just a heads up: You have been warned on ${message.message.guild.name} at Tier 1.\n\nreason:\n${warnreason}`);
                     }).catch((err) => {
                         throw Error(err.message);

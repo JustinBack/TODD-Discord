@@ -2,9 +2,11 @@ import { MessageEmbed, User, TextChannel } from 'discord.js';
 import { messageObj } from '../models';
 
 
-export function postModlog(messageObj: messageObj, User: User, Text: string) {
+export function postModlog(User: User, Text: string) {
 
-    const channel = (messageObj.message.guild.channels.cache.get(process.env.GUILD_MODLOG) as TextChannel);
+    const guild = (User.client.guilds.cache.get(process.env.GUILD_HOME));
+
+    const channel = (guild.channels.cache.get(process.env.GUILD_MODLOG) as TextChannel);
 
     if (!channel) return;
 

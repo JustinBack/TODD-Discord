@@ -29,7 +29,7 @@ module.exports = {
                 user.send(`Hi there, just a heads up: You have been kicked from ${message.message.guild.name} \n\nreason:\n${banreason}`);
                 member.kick(banreason)
                     .then(() => {
-                        postModlog(message, message.message.author, `Kicked ${user}\nreason:\n${banreason}`);
+                        postModlog(message.message.author, `Kicked ${user}\nreason:\n${banreason}`);
                         message.message.reply(`${user.tag} has been kicked!`);
                     })
                     .catch(err => {

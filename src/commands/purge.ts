@@ -27,7 +27,7 @@ module.exports = {
             if (member) {
                 member.ban({ days: 7, reason: banreason })
                     .then(() => {
-                        postModlog(message, message.message.author, `Purged ${user}\nreason:\n${banreason}`);
+                        postModlog(message.message.author, `Purged ${user}\nreason:\n${banreason}`);
                         message.message.reply(`${user.tag} has been banned and purged!`);
                     })
                     .catch(err => {

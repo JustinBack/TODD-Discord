@@ -72,7 +72,7 @@ module.exports = {
                     member.roles.remove(WarningOneRole).then(() => {
 
                         message.message.channel.send(`${user} has no more warnings`);
-                        postModlog(message, message.message.author, `Removed warnings for ${user}\n\n${warnreason}`);
+                        postModlog(message.message.author, `Removed warnings for ${user}\n\n${warnreason}`);
                         user.send(`Hi there, just a heads up: Your warnings on ${message.message.guild.name} have been removed.\n\nreason:\n${warnreason}`);
                     }).catch((err) => {
                         throw Error(err.message);
@@ -81,7 +81,7 @@ module.exports = {
                     member.roles.remove(WarningTwoRole).then(() => {
                         member.roles.add(WarningOneRole).then(() => {
                             message.message.channel.send(`${user}: Lowered warning`);
-                            postModlog(message, message.message.author, `Lowered Warning of ${user} from ${WarningTwoRole} to ${WarningOneRole}\n\n${warnreason}`);
+                            postModlog(message.message.author, `Lowered Warning of ${user} from ${WarningTwoRole} to ${WarningOneRole}\n\n${warnreason}`);
 
                             user.send(`Hi there, just a heads up: Your Tier Two warning on ${message.message.guild.name} has been lowered to Tier One.\n\nreason:\n${warnreason}`);
                         }).catch((err) => {
@@ -94,7 +94,7 @@ module.exports = {
                     member.roles.remove(WarningThreeRole).then(() => {
                         member.roles.add(WarningTwoRole).then(() => {
                             message.message.channel.send(`${user}: Lowered warning`);
-                            postModlog(message, message.message.author, `Lowered Warning of ${user} from ${WarningThreeRole} to ${WarningTwoRole}\n\n${warnreason}`);
+                            postModlog(message.message.author, `Lowered Warning of ${user} from ${WarningThreeRole} to ${WarningTwoRole}\n\n${warnreason}`);
 
                             user.send(`Hi there, just a heads up: Your Tier Three warning on ${message.message.guild.name} has been lowered to Tier Two.\n\nreason:\n${warnreason}`);
                         }).catch((err) => {
