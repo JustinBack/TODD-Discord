@@ -239,11 +239,7 @@ class AntiSpamClient extends EventEmitter {
 	 */
 	async message(message) {
 		const { options } = this
-		if (
-			!message.guild ||
-			message.author.id === message.client.user.id ||
-			(options.ignoreBots && message.author.bot)
-		) {
+		if (!message.guild || message.author.id === message.client.user.id || (options.ignoreBots && message.author.bot) || message.system) {
 			return false
 		}
 
@@ -285,7 +281,7 @@ class AntiSpamClient extends EventEmitter {
 				modlog.postModlog(message.client.user, `${message.author} is now on a ${role} for spamming Discord Links.`);
 				return await message.member.roles.add(role, 'Invite Link');
 			}
-		} else if (this.isEmpty(message.content)) {
+		} else if (this.isEmpty(message.content) && message.attachments.size === 0) {
 
 			if (Account["Bitmask"] & options.exemptPermissions) return;
 
