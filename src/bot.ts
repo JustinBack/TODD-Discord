@@ -28,6 +28,7 @@ if (process[Symbol.for("ts-node.register.instance")]) {
     console.log("Compiled at", fs.readFileSync(__dirname + "/.compile_time", 'utf8'));
 }
 
+
 export const bot = new Discord.Client({ partials: ['CHANNEL', 'MESSAGE', 'REACTION'] });
 
 dotenv.config({
@@ -35,6 +36,15 @@ dotenv.config({
 });
 console.log(color.green("Loaded environment variables!"));
 
+if (!process.env.BOT_TOKEN) throw new Error("BOT_TOKEN .env is not set.");
+if (!process.env.BOT_PREFIX) throw new Error("BOT_PREFIX .env is not set.");
+if (!process.env.MYSQL_HOST) throw new Error("MYSQL_HOST .env is not set.");
+if (!process.env.MYSQL_USERNAME) throw new Error("MYSQL_USERNAME .env is not set.");
+if (!process.env.MYSQL_PASSWORD) throw new Error("MYSQL_PASSWORD .env is not set.");
+if (!process.env.MYSQL_DATABASE) throw new Error("MYSQL_DATABASE .env is not set.");
+if (!process.env.REDIS_HOST) throw new Error("REDIS_HOST .env is not set.");
+if (!process.env.REDIS_PORT) throw new Error("REDIS_PORT .env is not set.");
+if (!process.env.REDIS_INDEX) throw new Error("REDIS_INDEX .env is not set.");
 
 var dbmaster = mysql.createPool({
     host: process.env.MYSQL_HOST,
@@ -87,6 +97,16 @@ bot.on('ready', () => {
             type: 'WATCHING'
         }
     });
+
+    if (!process.env.GUILD_HOME) return;
+    if (!process.env.GUILD_WARNING_ONE) return;
+    if (!process.env.GUILD_WARNING_TWO) return;
+    if (!process.env.GUILD_WARNING_THREE) return;
+    if (!process.env.WARNING_ONE_EXPIRE) return;
+    if (!process.env.WARNING_TWO_EXPIRE) return;
+    if (!process.env.WARNING_THREE_EXPIRE) return;
+
+    console.log("Starting WarningExpire job");
 
     let HomeGuild = bot.guilds.cache.get(process.env.GUILD_HOME);
 
@@ -203,108 +223,92 @@ bot.on('guildMemberUpdate', async (oldMember, newMember) => {
 
 });
 
-bot.on('messageReactionRemove', async (reaction, user) => {
+if (process.env.GUILD_HOME) {
+    console.log("Started Poll Job");
+    bot.on('messageReactionRemove', async (reaction, user) => {
 
-    if (reaction.partial) {
-        try {
-            await reaction.fetch();
-        } catch (error) {
-            console.error('Something went wrong when fetching the message: ', error);
-            return;
+        if (reaction.partial) {
+            try {
+                await reaction.fetch();
+            } catch (error) {
+                console.error('Something went wrong when fetching the message: ', error);
+                return;
+            }
         }
-    }
 
-    if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
-        return;
-    }
-
-    dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, rows: any) {
-
-        if (err) {
-            console.log(err);
+        if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
             return;
         }
 
-        if (rows.length == 0) {
-            return;
-        }
+        dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, rows: any) {
 
-
-        if (new Date(rows[0]["Until"]) < new Date()) {
-            return;
-        }
-
-
-        dbmaster.query("DELETE FROM Reactions WHERE MessageID = ? AND UserID = ? AND Reaction = ?", [reaction.message.id, user.id, reaction.emoji.identifier], function (err) {
             if (err) {
                 console.log(err);
                 return;
             }
-            const embed = new MessageEmbed()
-                .setColor('#0099ff')
-                .setTitle("Server Poll")
-                .setFooter("Poll will run until " + rows[0]["Until"])
-                .setDescription(rows[0]["PollText"]);
-            embed.addField("**Votes**", "------");
 
-            reaction.message.reactions.cache.forEach(function (Reaction) {
-                embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
+            if (rows.length == 0) {
+                return;
+            }
+
+
+            if (new Date(rows[0]["Until"]) < new Date()) {
+                return;
+            }
+
+
+            dbmaster.query("DELETE FROM Reactions WHERE MessageID = ? AND UserID = ? AND Reaction = ?", [reaction.message.id, user.id, reaction.emoji.identifier], function (err) {
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+                const embed = new MessageEmbed()
+                    .setColor('#0099ff')
+                    .setTitle("Server Poll")
+                    .setFooter("Poll will run until " + rows[0]["Until"])
+                    .setDescription(rows[0]["PollText"]);
+                embed.addField("**Votes**", "------");
+
+                reaction.message.reactions.cache.forEach(function (Reaction) {
+                    embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
+                });
+                reaction.message.edit(embed);
             });
-            reaction.message.edit(embed);
         });
     });
-});
 
-bot.on('messageReactionAdd', async (reaction, user) => {
+    bot.on('messageReactionAdd', async (reaction, user) => {
 
-    if (reaction.partial) {
-        try {
-            await reaction.fetch();
-        } catch (error) {
-            console.error('Something went wrong when fetching the message: ', error);
-            return;
-        }
-    }
-
-
-    if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
-        return;
-    }
-    const userReactions = reaction.message.reactions.cache.filter(reaction => reaction.users.cache.has(user.id));
-
-    dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, Pollrows: any) {
-
-        if (Pollrows.length == 0) {
-            return;
-        }
-
-        if (new Date(Pollrows[0]["Until"]) < new Date()) {
-            for (const reaction of userReactions.values()) {
-                await reaction.users.remove(user.id);
+        if (reaction.partial) {
+            try {
+                await reaction.fetch();
+            } catch (error) {
+                console.error('Something went wrong when fetching the message: ', error);
+                return;
             }
-            return;
         }
 
-        dbmaster.query("SELECT * FROM Reactions WHERE MessageID = ? AND UserID = ?", [reaction.message.id, user.id], async function (err, rows: any) {
 
-            if (err) {
-                console.log(err);
-                user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
+        if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
+            return;
+        }
+        const userReactions = reaction.message.reactions.cache.filter(reaction => reaction.users.cache.has(user.id));
+
+        dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, Pollrows: any) {
+
+            if (Pollrows.length == 0) {
+                return;
+            }
+
+            if (new Date(Pollrows[0]["Until"]) < new Date()) {
                 for (const reaction of userReactions.values()) {
                     await reaction.users.remove(user.id);
                 }
                 return;
             }
-            if (rows.length > 0) {
-                for (const reaction of userReactions.values()) {
-                    if (reaction.emoji.identifier != rows[0]["Reaction"]) {
-                        await reaction.users.remove(user.id);
-                    }
-                }
-                return;
-            }
 
-            dbmaster.query("INSERT INTO Reactions (MessageID, UserID, Reaction) VALUES (?,?,?)", [reaction.message.id, user.id, reaction.emoji.identifier], async function (err) {
+            dbmaster.query("SELECT * FROM Reactions WHERE MessageID = ? AND UserID = ?", [reaction.message.id, user.id], async function (err, rows: any) {
+
                 if (err) {
                     console.log(err);
                     user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
@@ -313,25 +317,43 @@ bot.on('messageReactionAdd', async (reaction, user) => {
                     }
                     return;
                 }
+                if (rows.length > 0) {
+                    for (const reaction of userReactions.values()) {
+                        if (reaction.emoji.identifier != rows[0]["Reaction"]) {
+                            await reaction.users.remove(user.id);
+                        }
+                    }
+                    return;
+                }
 
-                const embed = new MessageEmbed()
-                    .setColor('#0099ff')
-                    .setTitle("Server Poll")
-                    .setFooter("Poll will run until " + Pollrows[0]["Until"])
-                    .setDescription(Pollrows[0]["PollText"]);
+                dbmaster.query("INSERT INTO Reactions (MessageID, UserID, Reaction) VALUES (?,?,?)", [reaction.message.id, user.id, reaction.emoji.identifier], async function (err) {
+                    if (err) {
+                        console.log(err);
+                        user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
+                        for (const reaction of userReactions.values()) {
+                            await reaction.users.remove(user.id);
+                        }
+                        return;
+                    }
 
-                embed.addField("**Votes**", "------");
-                reaction.message.reactions.cache.forEach(function (Reaction) {
-                    embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
+                    const embed = new MessageEmbed()
+                        .setColor('#0099ff')
+                        .setTitle("Server Poll")
+                        .setFooter("Poll will run until " + Pollrows[0]["Until"])
+                        .setDescription(Pollrows[0]["PollText"]);
+
+                    embed.addField("**Votes**", "------");
+                    reaction.message.reactions.cache.forEach(function (Reaction) {
+                        embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
+                    });
+                    reaction.message.edit(embed);
+
                 });
-                reaction.message.edit(embed);
-
             });
         });
     });
-});
-
-export const commands = loadCommands();
+}
+export const commands = loadCommands(bot, dbmaster);
 
 
 bot.on('message', async message => {
@@ -347,7 +369,7 @@ bot.on('message', async message => {
         }
     }
 
-    if (message.guild && message.guild.id === process.env.GUILD_HOME) {
+    if (process.env.GUILD_HOME && message.guild && message.guild.id === process.env.GUILD_HOME) {
         let Bitmasks: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
 
         if (Bitmasks[0].length !== 0) {
@@ -394,7 +416,7 @@ bot.on('message', async message => {
             if (!(Account["Bitmask"] & Permissions.SKIP_CHATBOT)) {
                 let ChatBot: any = await dbmaster.promise().query("SELECT * FROM BotChat");
                 if (ChatBot[0].length > 0) {
-                    if (message.guild && message.guild.id === process.env.GUILD_HOME) {
+                    if (process.env.GUILD_HOME && message.guild && message.guild.id === process.env.GUILD_HOME) {
                         for (var i in ChatBot[0]) {
                             let row = ChatBot[0][i];
                             if (message.content.includes(row.Keywords)) {
@@ -499,23 +521,35 @@ bot.on('message', async message => {
 
                 var pjson = require(__dirname + '/package.json');
 
+                const embed = new MessageEmbed();
+
                 let iv = crypto.randomBytes(16);
+                let StackTrace;
+                if (process.env.BOT_CRASH_SECRET) {
 
-                const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.BOT_CRASH_SECRET), iv);
-                let StackTrace = cipher.update(JSON.stringify(serializeError(exception)));
+                    const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.BOT_CRASH_SECRET), iv);
+                    StackTrace = cipher.update(JSON.stringify(serializeError(exception)));
 
-                StackTrace = Buffer.concat([StackTrace, cipher.final()]);
+                    StackTrace = Buffer.concat([StackTrace, cipher.final()]);
+
+                    embed.setColor('#0099ff')
+                        .setTitle("Woops! I crashed...")
+                        .setDescription("```" + iv.toString('hex') + "." + StackTrace.toString('hex') + "```")
+                        .addField("What to do?", "Report the bug using the string above")
+                        .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
+                        .setTimestamp();
+                } else {
+                    StackTrace = JSON.stringify(serializeError(exception));
+                    embed.setColor('#0099ff')
+                        .setTitle("Woops! I crashed...")
+                        .setDescription("```" + StackTrace + "```")
+                        .addField("What to do?", "Report the bug using the string above")
+                        .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
+                        .setTimestamp();
+                }
 
 
 
-
-                const embed = new MessageEmbed()
-                    .setColor('#0099ff')
-                    .setTitle("Woops! I crashed...")
-                    .setDescription("```" + iv.toString('hex') + "." + StackTrace.toString('hex') + "```")
-                    .addField("What to do?", "Report the bug using the string above")
-                    .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
-                    .setTimestamp();
                 message.channel.send(embed);
                 //_messageObj.message.channel.stopTyping(true);
 

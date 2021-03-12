@@ -1,6 +1,9 @@
 import { Command, messageObj, Permissions } from '../models';
 import { postModlog } from '../utils/modlog';
 import { Client, MessageEmbed } from 'discord.js';
+import { Pool } from 'mysql2';
+
+
 
 module.exports = {
     name: 'unwarn',
@@ -8,7 +11,15 @@ module.exports = {
     syntax: ["`[user:User Mention]` `[reason:string]`"],
     Bitmask: Permissions.WARN_USERS,
     RLPointsConsume: 2,
+    RequiredEnvs: ["GUILD_HOME", "GUILD_MODLOG", "GUILD_WARNING_ONE", "GUILD_WARNING_TWO", "GUILD_WARNING_THREE"],
     HomeGuildOnly: true,
+    onLoad: async (bot: Client, database: Pool) => {
+        if (await database.promise().query("CREATE TABLE IF NOT EXISTS `Warnings`( `ID` bigint(20) NOT NULL, `Tier` tinyint(4) NOT NULL, `Timestamp` datetime NOT NULL DEFAULT current_timestamp()) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")) {
+            console.log("Table Warnings created");
+        } else {
+            throw Error("Failed to initialize SQL Table");
+        }
+    },
     execute: (message: messageObj, bot: Client) => {
 
         let WarningOneRole = message.message.guild.roles.cache.get(process.env.GUILD_WARNING_ONE);

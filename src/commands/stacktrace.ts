@@ -8,6 +8,7 @@ module.exports = {
     invisible: false,
     syntax: ["`[stacktrace:String]`"],
     RLPointsConsume: 0,
+    RequiredEnvs: ["BOT_CRASH_SECRET"],
     Bitmask: Permissions.READ_STACKTRACE,
     execute: (message: messageObj, bot: Client) => {
 

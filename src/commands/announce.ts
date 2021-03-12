@@ -8,6 +8,7 @@ module.exports = {
     syntax: ["`[text:String]`"],
     Bitmask: Permissions.MAKE_ANNOUNCEMENTS,
     RLPointsConsume: 2,
+    RequiredEnvs: ["GUILD_HOME", "GUILD_ANNOUNCEMENT", "GUILD_MODLOG"],
     HomeGuildOnly: true,
     execute: (message: messageObj, bot: Client) => {
         if (message.arguments.length < 1) {

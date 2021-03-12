@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Command } from '../models';
+import { Pool } from "mysql2";
+import { Client } from "discord.js";
 import { Map } from '../models';
 import * as color from 'chalk';
 import * as cliProgress from 'cli-progress';
@@ -9,7 +11,7 @@ import * as cliProgress from 'cli-progress';
  * Load all commands in the `commands/` folder and return a collection of
  * commands.
  */
-export function loadCommands() {
+export function loadCommands(bot: Client, database: Pool) {
 	const files = fs.readdirSync(path.join(__dirname, '../commands'));
 	const commands = new Map<string, Command>();
 	const errored: string[] = [];
@@ -30,6 +32,15 @@ export function loadCommands() {
 				try {
 					const command = require(`../commands/${file}`) as Command;
 
+					if (!process.env.GUILD_HOME && command.HomeGuildOnly) throw Error("GUILD_MODLOG .env is not set.");
+
+					for (var i in command.RequiredEnvs) {
+						if (!process.env[command.RequiredEnvs[i]]) throw Error(command.RequiredEnvs[i] + " .env is not set.");
+					}
+
+					if (command.onLoad) {
+						command.onLoad(bot, database);
+					}
 					//console.log(color.magenta(`Loaded command`), color.cyan(command.name));
 					commands.set(command.name, command);
 					bar1.increment();

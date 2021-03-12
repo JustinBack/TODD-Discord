@@ -7,6 +7,7 @@ module.exports = {
     description: 'Kicks a user',
     syntax: ["`[user:User Mention]` `[reason:string]`"],
     Bitmask: Permissions.KICK_USERS,
+    RequiredEnvs: ["GUILD_HOME", "GUILD_MODLOG"],
     RLPointsConsume: 2,
     HomeGuildOnly: true,
     execute: (message: messageObj, bot: Client) => {

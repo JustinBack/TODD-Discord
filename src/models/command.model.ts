@@ -13,5 +13,7 @@ export interface Command {
   ExternalGuildOnly?: boolean;
   GuildOnly?: boolean;
   DMOnly?: boolean;
+  RequiredEnvs?: Array<string>;
   execute: (message: messageObj, bot: Client, mysql: Pool) => any;
+  onLoad?: (bot: Client, mysql: Pool) => any;
 }

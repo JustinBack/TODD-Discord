@@ -12,6 +12,13 @@ module.exports = {
 	RLPointsConsume: 0,
 	Bitmask: Permissions.NONE,
 	HomeGuildOnly: false,
+	onLoad: async (bot: Client, database: Pool) => {
+		if (await database.promise().query("CREATE TABLE IF NOT EXISTS `Permissions` (`ID` bigint(20) NOT NULL,`Bitmask` bigint(20) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")) {
+			console.log("Table Permissions created");
+		} else {
+			throw Error("Failed to initialize SQL Table");
+		}
+	},
 	execute: async (message: messageObj, bot: Client, database: Pool) => {
 
 		if (message.arguments.length === 1) {

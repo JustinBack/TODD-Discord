@@ -12,6 +12,13 @@ module.exports = {
 	RLPointsConsume: 0,
 	Bitmask: Permissions.MODIFY_ROLEMENTIONS,
 	HomeGuildOnly: true,
+	onLoad: async (bot: Client, database: Pool) => {
+		if (await database.promise().query("CREATE TABLE IF NOT EXISTS `RoleMentions`( `ID` bigint(20) NOT NULL, `Text` longtext NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")) {
+			console.log("Table RoleMentions created");
+		} else {
+			throw Error("Failed to initialize SQL Table");
+		}
+	},
 	execute: async (message: messageObj, bot: Client, database: Pool) => {
 
 		if (message.arguments.length === 1) {

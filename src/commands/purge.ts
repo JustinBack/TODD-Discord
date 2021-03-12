@@ -8,6 +8,7 @@ module.exports = {
     syntax: ["`[user:User Mention]` `[reason:string]`"],
     Bitmask: Permissions.PURGE_USERS,
     RLPointsConsume: 2,
+    RequiredEnvs: ["GUILD_HOME", "GUILD_MODLOG"],
     HomeGuildOnly: true,
     execute: (message: messageObj, bot: Client) => {
         const user = message.message.mentions.users.first();

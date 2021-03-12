@@ -10,7 +10,21 @@ module.exports = {
     syntax: ["`[channel:Channel Mention]` `[text:String]`"],
     RLPointsConsume: 0,
     Bitmask: Permissions.MAKE_POLLS,
+    RequiredEnvs: ["GUILD_HOME", "GUILD_MODLOG"],
     HomeGuildOnly: true,
+    onLoad: async (bot: Client, database: Pool) => {
+        if (await database.promise().query("CREATE TABLE IF NOT EXISTS `Polls`( `MessageID` bigint(20) DEFAULT NULL, `ChannelID` bigint(20) DEFAULT NULL, `Until` datetime DEFAULT NULL, `PollText` text DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")) {
+            console.log("Table Polls created");
+        } else {
+            throw Error("Failed to initialize SQL Table");
+        }
+
+        if (await database.promise().query("CREATE TABLE IF NOT EXISTS `Reactions`( `MessageID` bigint(20) DEFAULT NULL, `UserID` bigint(20) DEFAULT NULL, `Reaction` text DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")) {
+            console.log("Table Reactions created");
+        } else {
+            throw Error("Failed to initialize SQL Table");
+        }
+    },
     execute: (message: messageObj, bot: Client, database: Pool) => {
 
         if (message.message.channel.type == "dm") {

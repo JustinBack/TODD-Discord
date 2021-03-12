@@ -12,6 +12,13 @@ module.exports = {
 	RLPointsConsume: 0,
 	Bitmask: Permissions.MODIFY_CHATBOT,
 	HomeGuildOnly: true,
+	onLoad: async (bot: Client, database: Pool) => {
+		if (await database.promise().query("CREATE TABLE IF NOT EXISTS `BotChat`( `Keywords` text NOT NULL, `Response` longtext NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")) {
+			console.log("Table BotChat created");
+		} else {
+			throw Error("Failed to initialize SQL Table");
+		}
+	},
 	execute: async (message: messageObj, bot: Client, database: Pool) => {
 
 		let args = message.arguments;

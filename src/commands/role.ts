@@ -6,6 +6,7 @@ module.exports = {
     description: 'Assign yourself a role!',
     syntax: ["- _List all Roles_", "`[role_name:String]` - de-/assign a role"],
     RLPointsConsume: 0,
+    RequiredEnvs: ["GUILD_ASSIGN_ROLES"],
     Bitmask: Permissions.NONE,
     HomeGuildOnly: true,
     execute: (message: messageObj, bot: Client) => {

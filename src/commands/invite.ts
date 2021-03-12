@@ -6,6 +6,7 @@ module.exports = {
     description: 'Get an invite to the ToS;DR Server',
     syntax: ["- _Invite link_"],
     RLPointsConsume: 100,
+    RequiredEnvs: ["GUILD_INVITE_CHANNEL"],
     Bitmask: Permissions.NONE,
     ExternalGuildOnly: true,
     execute: (message: messageObj, bot: Client) => {
