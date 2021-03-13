@@ -23,22 +23,26 @@
   },
   "homepage": "https://github.com/JustinBack/TODD-Discord#readme",
   "dependencies": {
+    "@discordjs/opus": "^0.4.0",
     "aki-api": "^5.2.1",
     "chalk": "^4.1.0",
     "cli-progress": "^3.9.0",
     "discord.js": "^12.5.1",
     "discord.js-minesweeper": "^1.0.6",
-    "discord.js-tictactoe": "^1.0.2",
     "dotenv": "^8.2.0",
+    "ffmpeg": "^0.0.4",
     "findthelyrics": "^1.0.10",
+    "fluent-ffmpeg": "^2.1.2",
     "json5": "^2.2.0",
     "mysql2": "^2.2.5",
+    "node-addon-api": "^3.1.0",
     "rate-limiter-flexible": "^2.2.1",
     "redis": "^3.0.2",
     "request": "^2.88.2",
     "serialize-error": "^7.0.1",
     "striptags": "^3.1.1",
-    "uuid": "^8.3.2"
+    "uuid": "^8.3.2",
+    "ytdl-core": "^4.5.0"
   },
   "devDependencies": {
     "@types/cli-progress": "^3.9.1",
