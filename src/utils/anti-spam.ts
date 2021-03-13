@@ -81,7 +81,7 @@ export class AntiSpamClient extends EventEmitter {
 		await message.channel.send(this.format('**{user_tag}** has been given a Tier 2 Warning for spamming.', message)).catch(e => {
 			console.error(`DAntiSpam (kickUser#sendSuccessMessage): ${e.message}`)
 		})
-		this.log(message, `Spam detected: ${message.author} got **muted**`, message.client)
+		postModlog(message.client.user, `${message.author} is now on a ${role} for spamming.`);
 
 		this.emit('muteAdd', member)
 		return true
