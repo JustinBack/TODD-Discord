@@ -1,33 +1,24 @@
 /**
  * Improved Anti Spam module
- * https://www.npmjs.com/package/discord-anti-spam
+ * https://github.com/Michael-J-Scofield/discord-anti-spam
+ * 
+ * Original Author: Michael Scofield
+ * Improved by: Justin Back
  */
 
 import { Message, GuildMember, MessageEmbed, Client, User, TextChannel } from 'discord.js';
 import { Permissions } from '../models/permissions.model';
 import { postModlog } from './modlog';
-const EventEmitter = require('events');
-const compare = require('hamming-distance');
+import { EventEmitter } from 'events';
 import { imageHash } from 'image-hash';
 import { Pool } from 'mysql2';
-/**
- * Emitted when a member gets warned.
- * @event AntiSpamClient#warnAdd
- * @property {GuildMember} member The member that was warned.
- */
 
-/**
- * Emitted when a member gets muted.
- * @event AntiSpamClient#muteAdd
- * @property {GuildMember} member The member that was muted.
- */
-/**
- * Main AntiSpam class
- */
+
+/* No TS Definitions */
+const compare = require('hamming-distance');
+
+
 export class AntiSpamClient extends EventEmitter {
-	/**
-	 * @param {AntiSpamClientOptions} options The options for this AntiSpam client instance
-	 */
 
 	cache: any = {
 		messages: [],
