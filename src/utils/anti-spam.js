@@ -7,7 +7,8 @@ const Discord = require('discord.js')
 const Bitmask = require('../models/permissions.model')
 const modlog = require('./modlog');
 const EventEmitter = require('events');
-
+const compare = require('hamming-distance');
+const { imageHash } = require('image-hash');
 /**
  * Emitted when a member gets warned.
  * @event AntiSpamClient#warnAdd
@@ -227,6 +228,58 @@ class AntiSpamClient extends EventEmitter {
 	}
 
 
+	async pHash(user) {
+		const { options } = this
+		if (!user.id === user.client.user.id || (options.ignoreBots && user.bot) || user.system || !user.avatarURL({ format: "jpg" })) {
+			return false
+		}
+		let matches = [];
+		const guild = (user.client.guilds.cache.get(process.env.GUILD_HOME));
+
+		const channel = (guild.channels.cache.get(process.env.GUILD_ERRORS));
+
+		if (!channel) return;
+		let [rows] = await options.mysql.promise().query("SELECT * FROM pHashes", []);
+
+		if (rows.length === 0) {
+			console.error("New User detected, adding pHash");
+			imageHash(user.avatarURL({ format: "jpg" }), 16, true, async (error, hashFirst) => {
+				if (error) return console.error;
+				await options.mysql.promise().query("INSERT INTO pHashes (ID, pHash) VALUES (?, ?)", [user.id, hashFirst]);
+				this.pHash(user);
+			});
+			return;
+		}
+
+		imageHash(user.avatarURL({ format: "jpg" }), 16, true, async (error, hashUser) => {
+			if (error) throw error;
+			for (var row of rows) {
+				if (row.ID === user.id) continue;
+				let hemmingdistance = compare(new Buffer(row.pHash, 'hex'), new Buffer(hashUser, 'hex'));
+				row.distance = hemmingdistance;
+				if (hemmingdistance <= 50) {
+					matches.push(row);
+				}
+				console.log(row);
+			}
+			if (matches.length > 0) {
+				const embed = new Discord.MessageEmbed()
+					.setColor('#0099ff')
+					.setTitle("Similiar Avatar Detected!")
+					.setDescription(`${user} has a similar avatar to ${matches.length} users. Please investigate!`);
+				for (var match of matches) {
+					const matcheduser = (guild.members.cache.get(match.ID));
+					if (!matcheduser) {
+						let [dlrow] = await options.mysql.promise().query("DELETE FROM pHashes WHERE ID = ?", [match.ID]);
+						continue;
+					}
+					embed.addField(matcheduser.user.username, `Mention: ${matcheduser}\npHash: ${match.pHash}\nHemming distance: ${match.distance}\nDiscord ID: ${match.ID}`);
+				}
+				embed.setTimestamp();
+				channel.send(embed);
+			}
+		});
+	}
 
 	/**
 	 * Checks a message.

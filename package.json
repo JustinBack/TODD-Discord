@@ -33,6 +33,8 @@
     "ffmpeg": "^0.0.4",
     "findthelyrics": "^1.0.10",
     "fluent-ffmpeg": "^2.1.2",
+    "hamming-distance": "^1.0.0",
+    "image-hash": "^4.0.1",
     "json5": "^2.2.0",
     "mysql2": "^2.2.5",
     "node-addon-api": "^3.1.0",

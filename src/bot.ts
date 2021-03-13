@@ -86,7 +86,17 @@ console.log(color.green(`Started redis rate limiter`));
 
 console.log(color.green(`Connection to Redis Server established on DB Index ${color.cyan(process.env.REDIS_INDEX)}`));
 
-
+bot.on("userUpdate", function (oldUser: any, newUser: any) {
+    if (oldUser.avatarURL() != newUser.avatarURL()) {
+        antiSpam.pHash(newUser);
+    }
+});
+bot.on("guildMemberAdd", function (guildMember: any) {
+    antiSpam.pHash(guildMember.user);
+});
+bot.on("guildMemberRemove", async function (guildMember: any) {
+    await dbmaster.promise().query("DELETE FROM pHashes WHERE ID = ?", [guildMember.id]);
+});
 bot.on('ready', () => {
 
     console.log(`Logged in as ${bot.user.tag}!`);
