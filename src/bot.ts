@@ -15,7 +15,7 @@ import * as crypto from 'crypto';
 import { serializeError } from 'serialize-error';
 import * as util from 'util';
 import * as fs from 'fs';
-const AntiSpam = require('./utils/anti-spam');
+import { AntiSpamClient } from './utils/anti-spam';
 
 
 console.log(color.blue("********************** Initializing ************************"));
@@ -56,9 +56,7 @@ var dbmaster = mysql.createPool({
 });
 
 
-const antiSpam = new AntiSpam({
-    mysql: dbmaster
-});
+const antiSpam = new AntiSpamClient(dbmaster);
 
 const redisClient = redis.createClient(Number.parseInt(process.env.REDIS_PORT), process.env.REDIS_HOST, { enable_offline_queue: false });
 
@@ -88,7 +86,7 @@ console.log(color.green(`Connection to Redis Server established on DB Index ${co
 
 bot.on("userUpdate", function (oldUser: any, newUser: any) {
     if (oldUser.avatarURL() != newUser.avatarURL()) {
-        antiSpam.pHash(newUser);
+        antiSpam.pHash(newUser, true);
     }
 });
 bot.on("guildMemberAdd", function (guildMember: any) {

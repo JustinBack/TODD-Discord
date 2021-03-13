@@ -31,7 +31,7 @@ module.exports = {
 
 				if (rows.length === 0) {
 					if (!user.avatarURL({ format: "jpg" })) return;
-					imageHash(user.avatarURL({ format: "jpg" }), 16, true, async (error: any, pHash: any) => {
+					imageHash(user.avatarURL({ format: "jpg" }), 16, false, async (error: any, pHash: any) => {
 						if (error) return console.error;
 						let [insert]: any = await database.promise().query("INSERT INTO pHashes (ID, pHash) VALUES (?, ?)", [user.id, pHash]);
 
@@ -77,9 +77,9 @@ module.exports = {
 		}
 
 
-		imageHash(firstUser.avatarURL({ format: "jpg" }), 16, true, (error: any, hashFirst: any) => {
+		imageHash(firstUser.avatarURL({ format: "jpg" }), 16, false, (error: any, hashFirst: any) => {
 			if (error) throw error;
-			imageHash(secondUser.avatarURL({ format: "jpg" }), 16, true, (error: any, hashSecond: any) => {
+			imageHash(secondUser.avatarURL({ format: "jpg" }), 16, false, (error: any, hashSecond: any) => {
 				if (error) throw error;
 				let hemmingdistance = compare(new Buffer(hashFirst, 'hex'), new Buffer(hashSecond, 'hex'));
 				message.message.reply(`First: ${hashFirst}\nSecond: ${hashSecond}\n\nHemming Distance: ${hemmingdistance}`, { code: true });
