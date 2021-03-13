@@ -1,10 +1,10 @@
-module.exports = function (grunt) {
+module.exports = function (grunt: any) {
     grunt.initConfig({
         pkg: grunt.file.readJSON("package.json"),
         clean: {
             default: {
                 dot: true,
-                src: ["build/**/*"]
+                src: ["production/**/*"]
             },
         },
         ts: {
@@ -18,15 +18,15 @@ module.exports = function (grunt) {
                     {
                         nonull: true,
                         src: 'src/.env.example',
-                        dest: 'build/.env.example',
+                        dest: 'production/.env.example',
                     }, {
                         nonull: true,
                         src: 'package.json',
-                        dest: 'build/package.json',
+                        dest: 'production/package.json',
                     }, {
                         nonull: true,
                         src: 'package-lock.json',
-                        dest: 'build/package-lock.json',
+                        dest: 'production/package-lock.json',
                     }
                 ]
             },
@@ -35,7 +35,7 @@ module.exports = function (grunt) {
                     {
                         nonull: true,
                         src: 'src/.env',
-                        dest: 'build/.env',
+                        dest: 'production/.env',
                     }
                 ]
             },
@@ -51,7 +51,7 @@ module.exports = function (grunt) {
                         dot: true,
                         src: '**/*',
                         expand: true,
-                        cwd: 'build/'
+                        cwd: 'production/'
                     }
                 ]
             }
@@ -64,7 +64,7 @@ module.exports = function (grunt) {
     grunt.registerTask('compile_time', 'Prints the compile time to a file', function () {
         var timestamp = new Date().toUTCString();
         console.log("Compilation time is at " + timestamp);
-        grunt.file.write(__dirname + '/build/.compile_time', timestamp);
+        grunt.file.write(__dirname + '/production/.compile_time', timestamp);
     });
     grunt.registerTask('default', ['clean', 'ts', 'copy:default', 'compile_time', 'compress', 'copy:envToProd']);
 };

@@ -3,10 +3,9 @@
     "module": "commonjs",
     "target": "ES6",
     "noImplicitAny": true,
-    "allowJs": true,
     "removeComments": true,
     "preserveConstEnums": true,
-    "outDir": "build/",
+    "outDir": "production/",
     "rootDir": "src/",
     "sourceMap": false
   },
