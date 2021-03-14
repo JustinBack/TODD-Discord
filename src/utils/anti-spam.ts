@@ -138,6 +138,8 @@ export class AntiSpamClient extends EventEmitter {
 
 		imageHash(user.avatarURL({ format: "jpg" }), 16, false, async (error: any, hashUser: any) => {
 			if (error) throw error;
+			let pingEveryone: Boolean = false;
+			let HemmingIsZero: Boolean = false;
 			for (var row of rows) {
 				if (row.ID === user.id) {
 					if (!update) continue;
@@ -148,6 +150,12 @@ export class AntiSpamClient extends EventEmitter {
 				row.distance = hemmingdistance;
 				if (hemmingdistance <= 50) {
 					matches.push(row);
+					if (hemmingdistance <= 10) {
+						pingEveryone = true;
+					}
+					if (hemmingdistance == 0) {
+						HemmingIsZero = true;
+					}
 				}
 				console.log(row);
 			}
@@ -162,10 +170,16 @@ export class AntiSpamClient extends EventEmitter {
 						let [dlrow] = await this.mysql.promise().query("DELETE FROM pHashes WHERE ID = ?", [match.ID]);
 						continue;
 					}
-					embed.addField(matcheduser.user.username, `Mention: ${matcheduser}\npHash: ${match.pHash}\nHemming distance: ${match.distance}\nDiscord ID: ${match.ID}`);
+					embed.addField(matcheduser.user.username, `Original User: ${matcheduser}\npHash: ${match.pHash}\n\nHemming distance: ${match.distance}\nDiscord ID: ${match.ID}\nJoined at: ${matcheduser.joinedAt}\nHighest Role: ${matcheduser.roles.highest.name}`);
 				}
 				embed.setTimestamp();
-				channel.send(embed);
+				if (HemmingIsZero) {
+					return channel.send(`@everyone The hemming distance is at zero. The avatar of ${user} is an exact copy of another matched user, see below!`, { embed });
+				}
+				if (pingEveryone) {
+					return channel.send("@everyone A very low hemming distance has been detected, the user might be imposing another user!", { embed });
+				}
+				return channel.send(embed);
 			}
 		});
 	}
