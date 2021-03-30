@@ -146,9 +146,9 @@ export class AntiSpamClient extends EventEmitter {
 					await this.mysql.promise().query("UPDATE pHashes SET pHash = ? WHERE ID = ?", [hashUser, user.id]);
 					continue;
 				}
-				let hemmingdistance = compare(new Buffer(row.pHash, 'hex'), new Buffer(hashUser, 'hex'));
+				let hemmingdistance = compare(Buffer.from(row.pHash, 'hex'), Buffer.from(hashUser, 'hex'));
 				row.distance = hemmingdistance;
-				if (hemmingdistance <= 50) {
+				if (hemmingdistance <= 25) {
 					matches.push(row);
 					if (hemmingdistance <= 10) {
 						pingEveryone = true;
