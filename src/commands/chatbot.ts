@@ -3,6 +3,9 @@ import { Client, MessageEmbed } from 'discord.js';
 import { Pool } from 'mysql2';
 import * as util from 'util';
 
+if(process.env.DO_NOT_LOAD_MOD_TOOLS){
+	throw new Error("Not loading! DO_NOT_LOAD_MOD_TOOLS is true");
+}
 
 module.exports = {
 	name: 'chatbot',

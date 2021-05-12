@@ -1,22 +1,26 @@
-import { loadCommands } from './utils/load-commands';
-import { postModlog } from './utils/modlog';
+import {loadCommands} from './utils/load-commands';
+import * as loadSlashCommands from './utils/load-slash-commands';
+import {postModlog} from './utils/modlog';
 import * as process from 'process';
 import * as mysql from 'mysql2';
 import * as dotenv from 'dotenv';
 import * as redis from 'redis';
 import * as color from 'chalk';
-import { v4 as uuidv4 } from 'uuid';
+import {v4 as uuidv4} from 'uuid';
 import * as RateLimit from 'rate-limiter-flexible';
 import * as Discord from 'discord.js';
-import { messageObj, Permissions } from './models';
-import { exec } from 'child_process';
-import { MessageEmbed, TextChannel } from 'discord.js';
+import {Command, messageObj, Permissions} from './models';
+import {exec} from 'child_process';
+import {Intents, MessageEmbed, TextChannel} from 'discord.js';
 import * as crypto from 'crypto';
-import { serializeError } from 'serialize-error';
+import {serializeError} from 'serialize-error';
 import * as util from 'util';
 import * as fs from 'fs';
-import { AntiSpamClient } from './utils/anti-spam';
+import {AntiSpamClient} from './utils/anti-spam';
 
+
+let commands: Map<string, Command>;
+let slashcommands: Map<string, Command>;
 
 console.log(color.blue("********************** Initializing ************************"));
 
@@ -29,7 +33,10 @@ if (process[Symbol.for("ts-node.register.instance")]) {
 }
 
 
-export const bot = new Discord.Client({ partials: ['CHANNEL', 'MESSAGE', 'REACTION'] });
+export const bot = new Discord.Client({
+    partials: ['CHANNEL', 'MESSAGE', 'REACTION'],
+    intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MEMBERS]
+});
 
 dotenv.config({
     path: __dirname + "/.env"
@@ -58,7 +65,7 @@ var dbmaster = mysql.createPool({
 
 const antiSpam = new AntiSpamClient(dbmaster);
 
-const redisClient = redis.createClient(Number.parseInt(process.env.REDIS_PORT), process.env.REDIS_HOST, { enable_offline_queue: false });
+const redisClient = redis.createClient(Number.parseInt(process.env.REDIS_PORT), process.env.REDIS_HOST, {enable_offline_queue: false});
 
 if (process.env.REDIS_AUTH.length > 0) {
     redisClient.auth(process.env.REDIS_AUTH);
@@ -84,26 +91,68 @@ console.log(color.green(`Started redis rate limiter`));
 
 console.log(color.green(`Connection to Redis Server established on DB Index ${color.cyan(process.env.REDIS_INDEX)}`));
 
-bot.on("userUpdate", function (oldUser: any, newUser: any) {
-    if (oldUser.avatarURL() != newUser.avatarURL()) {
-        antiSpam.pHash(newUser, true);
+if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
+    bot.on("userUpdate", function (oldUser: any, newUser: any) {
+        if (oldUser.avatarURL() != newUser.avatarURL()) {
+            antiSpam.pHash(newUser, true);
+        }
+    });
+}
+
+
+if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
+    bot.on("guildMemberAdd", function (guildMember: any) {
+        antiSpam.pHash(guildMember.user);
+    });
+    bot.on("guildMemberRemove", async function (guildMember: any) {
+        await dbmaster.promise().query("DELETE FROM pHashes WHERE ID = ?", [guildMember.id]);
+    });
+}
+
+bot.on('interaction', interaction => {
+    if (!interaction.isCommand()) return;
+
+
+    let execCommand = slashcommands.get(interaction.commandName);
+
+    execCommand.execute(interaction, bot, dbmaster);
+
+
+});
+
+bot.on('ready', async () => {
+    if (!bot.application?.owner) await bot.application?.fetch();
+
+    bot.user.setPresence({
+        status: 'online',
+        activities: [{
+            name: 'I am loading!',
+            type: 'WATCHING'
+        }]
+    });
+
+    slashcommands = await loadSlashCommands.loadCommands(bot, dbmaster);
+
+
+    let cmddata = [];
+    for (let command of slashcommands) {
+        cmddata.push((command.pop() as Command).commandData);
     }
-});
-bot.on("guildMemberAdd", function (guildMember: any) {
-    antiSpam.pHash(guildMember.user);
-});
-bot.on("guildMemberRemove", async function (guildMember: any) {
-    await dbmaster.promise().query("DELETE FROM pHashes WHERE ID = ?", [guildMember.id]);
-});
-bot.on('ready', () => {
+
+    let cmdresponse = await bot.guilds.cache.get(process.env.GUILD_HOME)?.commands.set(cmddata);
+
+    console.log(cmdresponse);
+
+
+    commands = loadCommands(bot, dbmaster);
 
     console.log(`Logged in as ${bot.user.tag}!`);
     bot.user.setPresence({
         status: 'online',
-        activity: {
+        activities: [{
             name: 'in chat for ' + process.env.BOT_PREFIX + " help",
             type: 'WATCHING'
-        }
+        }]
     });
 
     if (!process.env.GUILD_HOME) return;
@@ -169,172 +218,153 @@ bot.on('ready', () => {
 console.log(color.green(`Connection to Master MySQL Server established on DB ${color.cyan(process.env.MYSQL_HOST)}`));
 
 
-bot.on('guildMemberUpdate', async (oldMember, newMember) => {
+if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
+    bot.on('guildMemberUpdate', async (oldMember, newMember) => {
 
 
+        const channel = (newMember.guild.channels.cache.get(process.env.GUILD_ERRORS) as TextChannel);
 
+        if (!channel) return console.log("Cannot find channel!");
 
-    const channel = (newMember.guild.channels.cache.get(process.env.GUILD_ERRORS) as TextChannel);
-
-    if (!channel) return console.log("Cannot find channel!");
-
-    let WarningOneRole = newMember.guild.roles.cache.get(process.env.GUILD_WARNING_ONE);
-    let WarningTwoRole = newMember.guild.roles.cache.get(process.env.GUILD_WARNING_TWO);
-    let WarningThreeRole = newMember.guild.roles.cache.get(process.env.GUILD_WARNING_THREE);
-    if (oldMember.roles.cache.size < newMember.roles.cache.size) {
-        if (!oldMember.roles.cache.has(WarningOneRole.id) && newMember.roles.cache.has(WarningOneRole.id)) {
-            let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 1]);
-            if (!inserted) {
-                newMember.roles.remove(WarningOneRole);
-                channel.send(`I failed to give <@${newMember.id}> The tier one warning due to a database error. I have removed it.`);
+        let WarningOneRole = newMember.guild.roles.cache.get(process.env.GUILD_WARNING_ONE);
+        let WarningTwoRole = newMember.guild.roles.cache.get(process.env.GUILD_WARNING_TWO);
+        let WarningThreeRole = newMember.guild.roles.cache.get(process.env.GUILD_WARNING_THREE);
+        if (oldMember.roles.cache.size < newMember.roles.cache.size) {
+            if (!oldMember.roles.cache.has(WarningOneRole.id) && newMember.roles.cache.has(WarningOneRole.id)) {
+                let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 1]);
+                if (!inserted) {
+                    newMember.roles.remove(WarningOneRole);
+                    channel.send(`I failed to give <@${newMember.id}> The tier one warning due to a database error. I have removed it.`);
+                }
             }
-        }
-        if (!oldMember.roles.cache.has(WarningTwoRole.id) && newMember.roles.cache.has(WarningTwoRole.id)) {
-            let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 2]);
-            if (!inserted) {
-                newMember.roles.remove(WarningTwoRole);
-                channel.send(`I failed to give <@${newMember.id}> The tier two warning due to a database error. I have removed it.`);
+            if (!oldMember.roles.cache.has(WarningTwoRole.id) && newMember.roles.cache.has(WarningTwoRole.id)) {
+                let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 2]);
+                if (!inserted) {
+                    newMember.roles.remove(WarningTwoRole);
+                    channel.send(`I failed to give <@${newMember.id}> The tier two warning due to a database error. I have removed it.`);
+                }
             }
-        }
-        if (!oldMember.roles.cache.has(WarningThreeRole.id) && newMember.roles.cache.has(WarningThreeRole.id)) {
-            let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 3]);
-            if (!inserted) {
-                newMember.roles.remove(WarningThreeRole);
-                channel.send(`I failed to give <@${newMember.id}> The tier three warning due to a database error. I have removed it.`);
-            }
-        }
-    }
-
-    if (oldMember.roles.cache.size > newMember.roles.cache.size) {
-        if (oldMember.roles.cache.has(WarningOneRole.id) && !newMember.roles.cache.has(WarningOneRole.id)) {
-            let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 1]);
-            if (!inserted) {
-                newMember.roles.add(WarningOneRole);
-                channel.send(`I failed to remove <@${newMember.id}> The tier one warning due to a database error. I have added it.`);
-            }
-        }
-        if (oldMember.roles.cache.has(WarningTwoRole.id) && !newMember.roles.cache.has(WarningTwoRole.id)) {
-            let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 2]);
-            if (!inserted) {
-                newMember.roles.add(WarningTwoRole);
-                channel.send(`I failed to remove <@${newMember.id}> The tier two warning due to a database error. I have added it.`);
-            }
-        }
-        if (oldMember.roles.cache.has(WarningThreeRole.id) && !newMember.roles.cache.has(WarningThreeRole.id)) {
-            let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 3]);
-            if (!inserted) {
-                newMember.roles.add(WarningThreeRole);
-                channel.send(`I failed to remove <@${newMember.id}> The tier three warning due to a database error. I have added it.`);
-            }
-        }
-    }
-
-});
-
-if (process.env.GUILD_HOME) {
-    console.log("Started Poll Job");
-    bot.on('messageReactionRemove', async (reaction, user) => {
-
-        if (reaction.partial) {
-            try {
-                await reaction.fetch();
-            } catch (error) {
-                console.error('Something went wrong when fetching the message: ', error);
-                return;
+            if (!oldMember.roles.cache.has(WarningThreeRole.id) && newMember.roles.cache.has(WarningThreeRole.id)) {
+                let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 3]);
+                if (!inserted) {
+                    newMember.roles.remove(WarningThreeRole);
+                    channel.send(`I failed to give <@${newMember.id}> The tier three warning due to a database error. I have removed it.`);
+                }
             }
         }
 
-        if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
-            return;
+        if (oldMember.roles.cache.size > newMember.roles.cache.size) {
+            if (oldMember.roles.cache.has(WarningOneRole.id) && !newMember.roles.cache.has(WarningOneRole.id)) {
+                let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 1]);
+                if (!inserted) {
+                    newMember.roles.add(WarningOneRole);
+                    channel.send(`I failed to remove <@${newMember.id}> The tier one warning due to a database error. I have added it.`);
+                }
+            }
+            if (oldMember.roles.cache.has(WarningTwoRole.id) && !newMember.roles.cache.has(WarningTwoRole.id)) {
+                let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 2]);
+                if (!inserted) {
+                    newMember.roles.add(WarningTwoRole);
+                    channel.send(`I failed to remove <@${newMember.id}> The tier two warning due to a database error. I have added it.`);
+                }
+            }
+            if (oldMember.roles.cache.has(WarningThreeRole.id) && !newMember.roles.cache.has(WarningThreeRole.id)) {
+                let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 3]);
+                if (!inserted) {
+                    newMember.roles.add(WarningThreeRole);
+                    channel.send(`I failed to remove <@${newMember.id}> The tier three warning due to a database error. I have added it.`);
+                }
+            }
         }
 
-        dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, rows: any) {
+    });
 
-            if (err) {
-                console.log(err);
+    if (process.env.GUILD_HOME) {
+        console.log("Started Poll Job");
+        bot.on('messageReactionRemove', async (reaction, user) => {
+
+            if (reaction.partial) {
+                try {
+                    await reaction.fetch();
+                } catch (error) {
+                    console.error('Something went wrong when fetching the message: ', error);
+                    return;
+                }
+            }
+
+            if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
                 return;
             }
 
-            if (rows.length == 0) {
-                return;
-            }
+            dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, rows: any) {
 
-
-            if (new Date(rows[0]["Until"]) < new Date()) {
-                return;
-            }
-
-
-            dbmaster.query("DELETE FROM Reactions WHERE MessageID = ? AND UserID = ? AND Reaction = ?", [reaction.message.id, user.id, reaction.emoji.identifier], function (err) {
                 if (err) {
                     console.log(err);
                     return;
                 }
-                const embed = new MessageEmbed()
-                    .setColor('#0099ff')
-                    .setTitle("Server Poll")
-                    .setFooter("Poll will run until " + rows[0]["Until"])
-                    .setDescription(rows[0]["PollText"]);
-                embed.addField("**Votes**", "------");
 
-                reaction.message.reactions.cache.forEach(function (Reaction) {
-                    embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
+                if (rows.length == 0) {
+                    return;
+                }
+
+
+                if (new Date(rows[0]["Until"]) < new Date()) {
+                    return;
+                }
+
+
+                dbmaster.query("DELETE FROM Reactions WHERE MessageID = ? AND UserID = ? AND Reaction = ?", [reaction.message.id, user.id, reaction.emoji.identifier], function (err) {
+                    if (err) {
+                        console.log(err);
+                        return;
+                    }
+                    const embed = new MessageEmbed()
+                        .setColor('#0099ff')
+                        .setTitle("Server Poll")
+                        .setFooter("Poll will run until " + rows[0]["Until"])
+                        .setDescription(rows[0]["PollText"]);
+                    embed.addField("**Votes**", "------");
+
+                    reaction.message.reactions.cache.forEach(function (Reaction) {
+                        embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
+                    });
+                    reaction.message.edit(embed);
                 });
-                reaction.message.edit(embed);
             });
         });
-    });
 
-    bot.on('messageReactionAdd', async (reaction, user) => {
+        bot.on('messageReactionAdd', async (reaction, user) => {
 
-        if (reaction.partial) {
-            try {
-                await reaction.fetch();
-            } catch (error) {
-                console.error('Something went wrong when fetching the message: ', error);
-                return;
-            }
-        }
-
-
-        if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
-            return;
-        }
-        const userReactions = reaction.message.reactions.cache.filter(reaction => reaction.users.cache.has(user.id));
-
-        dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, Pollrows: any) {
-
-            if (Pollrows.length == 0) {
-                return;
-            }
-
-            if (new Date(Pollrows[0]["Until"]) < new Date()) {
-                for (const reaction of userReactions.values()) {
-                    await reaction.users.remove(user.id);
+            if (reaction.partial) {
+                try {
+                    await reaction.fetch();
+                } catch (error) {
+                    console.error('Something went wrong when fetching the message: ', error);
+                    return;
                 }
-                return;
             }
 
-            dbmaster.query("SELECT * FROM Reactions WHERE MessageID = ? AND UserID = ?", [reaction.message.id, user.id], async function (err, rows: any) {
 
-                if (err) {
-                    console.log(err);
-                    user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
+            if (reaction.message.guild.id != process.env.GUILD_HOME || user.bot) {
+                return;
+            }
+            const userReactions = reaction.message.reactions.cache.filter(reaction => reaction.users.cache.has(user.id));
+
+            dbmaster.query("SELECT * FROM Polls WHERE MessageID = ? AND ChannelID = ?", [reaction.message.id, reaction.message.channel.id], async function (err, Pollrows: any) {
+
+                if (Pollrows.length == 0) {
+                    return;
+                }
+
+                if (new Date(Pollrows[0]["Until"]) < new Date()) {
                     for (const reaction of userReactions.values()) {
                         await reaction.users.remove(user.id);
                     }
                     return;
                 }
-                if (rows.length > 0) {
-                    for (const reaction of userReactions.values()) {
-                        if (reaction.emoji.identifier != rows[0]["Reaction"]) {
-                            await reaction.users.remove(user.id);
-                        }
-                    }
-                    return;
-                }
 
-                dbmaster.query("INSERT INTO Reactions (MessageID, UserID, Reaction) VALUES (?,?,?)", [reaction.message.id, user.id, reaction.emoji.identifier], async function (err) {
+                dbmaster.query("SELECT * FROM Reactions WHERE MessageID = ? AND UserID = ?", [reaction.message.id, user.id], async function (err, rows: any) {
+
                     if (err) {
                         console.log(err);
                         user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
@@ -343,25 +373,43 @@ if (process.env.GUILD_HOME) {
                         }
                         return;
                     }
+                    if (rows.length > 0) {
+                        for (const reaction of userReactions.values()) {
+                            if (reaction.emoji.identifier != rows[0]["Reaction"]) {
+                                await reaction.users.remove(user.id);
+                            }
+                        }
+                        return;
+                    }
 
-                    const embed = new MessageEmbed()
-                        .setColor('#0099ff')
-                        .setTitle("Server Poll")
-                        .setFooter("Poll will run until " + Pollrows[0]["Until"])
-                        .setDescription(Pollrows[0]["PollText"]);
+                    dbmaster.query("INSERT INTO Reactions (MessageID, UserID, Reaction) VALUES (?,?,?)", [reaction.message.id, user.id, reaction.emoji.identifier], async function (err) {
+                        if (err) {
+                            console.log(err);
+                            user.send("Sorry, I was unable to process your Reaction to the poll, please try again!");
+                            for (const reaction of userReactions.values()) {
+                                await reaction.users.remove(user.id);
+                            }
+                            return;
+                        }
 
-                    embed.addField("**Votes**", "------");
-                    reaction.message.reactions.cache.forEach(function (Reaction) {
-                        embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
+                        const embed = new MessageEmbed()
+                            .setColor('#0099ff')
+                            .setTitle("Server Poll")
+                            .setFooter("Poll will run until " + Pollrows[0]["Until"])
+                            .setDescription(Pollrows[0]["PollText"]);
+
+                        embed.addField("**Votes**", "------");
+                        reaction.message.reactions.cache.forEach(function (Reaction) {
+                            embed.addField(Reaction.emoji.toString(), (Reaction.count == 1 ? 0 : Reaction.count - 1), true);
+                        });
+                        reaction.message.edit(embed);
+
                     });
-                    reaction.message.edit(embed);
-
                 });
             });
         });
-    });
+    }
 }
-export const commands = loadCommands(bot, dbmaster);
 
 
 bot.on('message', async message => {
@@ -377,26 +425,27 @@ bot.on('message', async message => {
         }
     }
 
-    if (process.env.GUILD_HOME && message.guild && message.guild.id === process.env.GUILD_HOME) {
-        let Bitmasks: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
+    if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
+        if (process.env.GUILD_HOME && message.guild && message.guild.id === process.env.GUILD_HOME) {
+            let Bitmasks: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
 
-        if (Bitmasks[0].length !== 0) {
-            let Account = Bitmasks[0][0];
+            if (Bitmasks[0].length !== 0) {
+                let Account = Bitmasks[0][0];
 
-            if (Account["Bitmask"] & Permissions.USER_DISCOURAGED) {
-                message.delete();
-                return
+                if (Account["Bitmask"] & Permissions.USER_DISCOURAGED) {
+                    message.delete();
+                    return
+                }
             }
         }
     }
-
 
     if (!message.content.startsWith(process.env.BOT_PREFIX)) {
 
 
         let Bitmasks: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
 
-        Bitmasks = (Bitmasks[0].length === 0 ? [[{ "Bitmask": 0 }]] : Bitmasks);
+        Bitmasks = (Bitmasks[0].length === 0 ? [[{"Bitmask": 0}]] : Bitmasks);
 
         if (Bitmasks[0].length !== 0) {
             let Account = Bitmasks[0][0];
@@ -421,18 +470,21 @@ bot.on('message', async message => {
                     }
                 }
             }
-            if (!(Account["Bitmask"] & Permissions.SKIP_CHATBOT)) {
-                let ChatBot: any = await dbmaster.promise().query("SELECT * FROM BotChat");
-                if (ChatBot[0].length > 0) {
-                    if (process.env.GUILD_HOME && message.guild && message.guild.id === process.env.GUILD_HOME) {
-                        for (var i in ChatBot[0]) {
-                            let row = ChatBot[0][i];
-                            if (message.content.includes(row.Keywords)) {
-                                const embed = new MessageEmbed()
-                                    .setColor('#0099ff')
-                                    .setTitle("Frequently Asked Questions")
-                                    .setDescription(row.Response);
-                                return message.channel.send(embed);
+
+            if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
+                if (!(Account["Bitmask"] & Permissions.SKIP_CHATBOT)) {
+                    let ChatBot: any = await dbmaster.promise().query("SELECT * FROM BotChat");
+                    if (ChatBot[0].length > 0) {
+                        if (process.env.GUILD_HOME && message.guild && message.guild.id === process.env.GUILD_HOME) {
+                            for (var i in ChatBot[0]) {
+                                let row = ChatBot[0][i];
+                                if (message.content.includes(row.Keywords)) {
+                                    const embed = new MessageEmbed()
+                                        .setColor('#0099ff')
+                                        .setTitle("Frequently Asked Questions")
+                                        .setDescription(row.Response);
+                                    return message.channel.send(embed);
+                                }
                             }
                         }
                     }
@@ -557,7 +609,6 @@ bot.on('message', async message => {
                 }
 
 
-
                 message.channel.send(embed);
                 //_messageObj.message.channel.stopTyping(true);
 
@@ -570,7 +621,6 @@ bot.on('message', async message => {
         console.log(color.red("[ERROR]", color.magenta(`<${_messageObj.command}>`), color.yellow(error), error.stack));
     }
 });
-
 
 
 bot.login(process.env.BOT_TOKEN);

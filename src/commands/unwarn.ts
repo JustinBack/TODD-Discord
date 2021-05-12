@@ -77,7 +77,7 @@ module.exports = {
         let warnreason = shiftedargs.join(" ");
 
         if (user) {
-            const member = message.message.guild.member(user);
+            const member = message.message.guild.members.cache.get(user.id);
             if (member) {
                 if (member.roles.cache.has(WarningOneRole.id)) {
                     member.roles.remove(WarningOneRole).then(() => {
@@ -85,7 +85,7 @@ module.exports = {
                         message.message.channel.send(`${user} has no more warnings`);
                         postModlog(message.message.author, `Removed warnings for ${user}\n\n${warnreason}`);
                         user.send(`Hi there, just a heads up: Your warnings on ${message.message.guild.name} have been removed.\n\nreason:\n${warnreason}`);
-                    }).catch((err) => {
+                    }).catch((err: any) => {
                         throw Error(err.message);
                     });
                 } else if (member.roles.cache.has(WarningTwoRole.id)) {
@@ -95,7 +95,7 @@ module.exports = {
                             postModlog(message.message.author, `Lowered Warning of ${user} from ${WarningTwoRole} to ${WarningOneRole}\n\n${warnreason}`);
 
                             user.send(`Hi there, just a heads up: Your Tier Two warning on ${message.message.guild.name} has been lowered to Tier One.\n\nreason:\n${warnreason}`);
-                        }).catch((err) => {
+                        }).catch((err: any) => {
                             throw Error(err.message);
                         });
                     }).catch((err) => {

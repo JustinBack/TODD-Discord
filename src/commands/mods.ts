@@ -2,6 +2,10 @@ import { Command, messageObj, Permissions } from '../models';
 import { postModlog } from '../utils/modlog';
 import { Client, MessageEmbed, TextChannel } from 'discord.js';
 
+if(process.env.DO_NOT_LOAD_MOD_TOOLS){
+    throw new Error("Not loading! DO_NOT_LOAD_MOD_TOOLS is true");
+}
+
 module.exports = {
     name: 'mods',
     description: `Send a help request to <#${process.env.GUILD_ERRORS}>`,

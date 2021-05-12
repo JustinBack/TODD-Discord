@@ -4,6 +4,9 @@ import { bitmaskNames } from '../utils/bitmask-names';
 import { Pool } from 'mysql2';
 import { rword } from 'rword';
 
+if(process.env.DO_NOT_LOAD_MOD_TOOLS){
+	throw new Error("Not loading! DO_NOT_LOAD_MOD_TOOLS is true");
+}
 
 module.exports = {
 	name: 'claimrole',

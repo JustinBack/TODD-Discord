@@ -55,7 +55,7 @@ export class AntiSpamClient extends EventEmitter {
 		this.cache.messages = this.cache.messages.filter((u: any) => u.authorID !== message.author.id)
 		this.cache.mutedUsers.push(message.author.id)
 		const role = message.guild.roles.cache.get(process.env.GUILD_WARNING_TWO);
-		const userCanBeMuted = role && message.guild.me.hasPermission('MANAGE_ROLES') && (message.guild.me.roles.highest.position > message.member.roles.highest.position)
+		const userCanBeMuted = role && message.guild.me.permissions.has('MANAGE_ROLES') && (message.guild.me.roles.highest.position > message.member.roles.highest.position)
 		if (!userCanBeMuted) {
 			console.log(`DAntiSpam (kickUser#userNotMutable): ${message.author.tag} (ID: ${message.author.id}) could not be muted, improper permissions or the mute role couldn't be found.`)
 
@@ -210,7 +210,7 @@ export class AntiSpamClient extends EventEmitter {
 				message.delete();
 				const role = message.guild.roles.cache.get(process.env.GUILD_WARNING_ONE);
 				const roleMute = message.guild.roles.cache.get(process.env.GUILD_WARNING_ONE);
-				const userCanBeRoled = role && message.guild.me.hasPermission('MANAGE_ROLES') && (message.guild.me.roles.highest.position > message.member.roles.highest.position)
+				const userCanBeRoled = role && message.guild.me.permissions.has('MANAGE_ROLES') && (message.guild.me.roles.highest.position > message.member.roles.highest.position)
 				if (!userCanBeRoled) {
 					console.log(`DAntiSpam (message#userNotRolable): ${message.author.tag} (ID: ${message.author.id}) could not be warned, improper permissions or the tier 1 warning role couldn't be found.`)
 
@@ -240,7 +240,7 @@ export class AntiSpamClient extends EventEmitter {
 			console.log("Message is empty!");
 			const role = message.guild.roles.cache.get(process.env.GUILD_WARNING_ONE);
 			const roleMute = message.guild.roles.cache.get(process.env.GUILD_WARNING_ONE);
-			const userCanBeRoled = role && message.guild.me.hasPermission('MANAGE_ROLES') && (message.guild.me.roles.highest.position > message.member.roles.highest.position);
+			const userCanBeRoled = role && message.guild.me.permissions.has('MANAGE_ROLES') && (message.guild.me.roles.highest.position > message.member.roles.highest.position);
 			if (!userCanBeRoled) {
 				console.log(`DAntiSpam (message#userNotRolable): ${message.author.tag} (ID: ${message.author.id}) could not be warned, improper permissions or the tier 1 warning role couldn't be found.`);
 

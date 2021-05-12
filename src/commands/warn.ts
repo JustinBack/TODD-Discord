@@ -3,7 +3,9 @@ import { postModlog } from '../utils/modlog';
 import { Client, MessageEmbed } from 'discord.js';
 import { Pool } from 'mysql2';
 
-
+if(process.env.DO_NOT_LOAD_MOD_TOOLS){
+    throw new Error("Not loading! DO_NOT_LOAD_MOD_TOOLS is true");
+}
 
 
 module.exports = {
@@ -78,7 +80,7 @@ module.exports = {
         let warnreason = shiftedargs.join(" ");
 
         if (user) {
-            const member = message.message.guild.member(user);
+            const member = message.message.guild.members.cache.get(user.id);
             if (member) {
                 if (member.roles.cache.has(WarningOneRole.id)) {
                     member.roles.remove(WarningOneRole).then(() => {
@@ -86,10 +88,10 @@ module.exports = {
                             message.message.channel.send(`${user} is now on ${WarningTwoRole}`);
                             postModlog(message.message.author, `Warned ${user} on ${WarningTwoRole}\n\n${warnreason}`);
                             user.send(`Hi there, just a heads up: You have been warned on ${message.message.guild.name} at Tier 2.\n\nreason:\n${warnreason}`);
-                        }).catch((err) => {
+                        }).catch((err: any) => {
                             throw Error(err.message);
                         });
-                    }).catch((err) => {
+                    }).catch((err: any) => {
                         throw Error(err.message);
                     });
                 } else if (member.roles.cache.has(WarningTwoRole.id)) {
@@ -98,10 +100,10 @@ module.exports = {
                             message.message.channel.send(`${user} is now on ${WarningThreeRole}`);
                             postModlog(message.message.author, `Warned ${user} on ${WarningThreeRole}\n\n${warnreason}`);
                             user.send(`Hi there, just a heads up: You have been warned on ${message.message.guild.name} at Tier 3.\n\nreason:\n${warnreason}`);
-                        }).catch((err) => {
+                        }).catch((err: any) => {
                             throw Error(err.message);
                         });
-                    }).catch((err) => {
+                    }).catch((err: any) => {
                         throw Error(err.message);
                     });
                 } else {
@@ -109,7 +111,7 @@ module.exports = {
                         message.message.channel.send(`${user} is now on ${WarningOneRole}`);
                         postModlog(message.message.author, `Warned ${user} on ${WarningOneRole}\n\n${warnreason}`);
                         user.send(`Hi there, just a heads up: You have been warned on ${message.message.guild.name} at Tier 1.\n\nreason:\n${warnreason}`);
-                    }).catch((err) => {
+                    }).catch((err: any) => {
                         throw Error(err.message);
                     });
                 }

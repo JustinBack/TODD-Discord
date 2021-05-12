@@ -2,6 +2,10 @@ import { Command, messageObj, Permissions } from '../models';
 import { postModlog } from '../utils/modlog';
 import { Client } from 'discord.js';
 
+if(process.env.DO_NOT_LOAD_MOD_TOOLS){
+    throw new Error("Not loading! DO_NOT_LOAD_MOD_TOOLS is true");
+}
+
 module.exports = {
     name: 'ban',
     description: 'Bans a user',
@@ -24,7 +28,7 @@ module.exports = {
         let banreason = shiftedargs.join(" ");
 
         if (user) {
-            const member = message.message.guild.member(user);
+            const member = message.message.guild.members.cache.get(user.id);
             if (member) {
 
                 user.send(`Hi there, just a heads up: You have been banned from ${message.message.guild.name} \n\nreason:\n${banreason}`);

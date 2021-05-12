@@ -2,6 +2,10 @@ import { Command, messageObj, Permissions } from '../models';
 import { Client, MessageEmbed } from 'discord.js';
 import * as fs from 'fs';
 
+if(process.env.DO_NOT_LOAD_MOD_TOOLS){
+    throw new Error("Not loading! DO_NOT_LOAD_MOD_TOOLS is true");
+}
+
 module.exports = {
     name: 'version',
     description: 'Get the current version of the bot',

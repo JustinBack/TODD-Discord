@@ -1,14 +1,24 @@
 import { Command, messageObj, Permissions } from '../models';
-import { Client, MessageEmbed } from 'discord.js';
+import {Client, CommandInteraction, Interaction, MessageEmbed} from 'discord.js';
 import request = require('request');
 
 module.exports = {
-    name: 'service',
-    description: 'Search for a service',
     syntax: ["`[service_id:Integer]` - _Lookup a service via ID_", "`[service_slug:String]` - _Lookup a service via Slug_"],
     RLPointsConsume: 40,
     Bitmask: Permissions.NONE,
-    execute: (message: messageObj, bot: Client) => {
+    commandData: {
+        name: "service",
+        description: "Get service data",
+        options: [{
+            name: 'input',
+            type: 'INTEGER',
+            description: 'The service ID',
+            required: true,
+        }],
+    },
+    execute: async (message: CommandInteraction, bot: Client) => {
+
+        await message.defer();
 
 
         function truncate(str: any, n: number, useWordBoundary: boolean = false) {
@@ -19,33 +29,21 @@ module.exports = {
                 : subString) + "...";
         };
 
-        message.message.channel.send("Hold on... Loading!").then((msg) => {
-            var twirlTimer = (function () {
-                var P = ["|", "/", "—", "\\"];
-                var x = 0;
-                return setInterval(function () {
-                    msg.edit("Hold on... Loading! " + P[x++]);
-                    x &= 3;
-                }, 1000);
-            })();
 
-            request("https://tosdr.org/api/v2/service/" + message.argument + ".json", function (error, response, body) {
+            request("https://api.tosdr.org/v2/service/" + message.options[0].value.toString() + ".json", {headers: {"User-Agent": "Todd"}}, function (error, response, body) {
                 if (error) {
                     throw Error(error.message);
                 }
                 if (response.statusCode !== 200) {
-                    message.message.channel.send("Hmm I received a " + response.statusCode);
-                    clearInterval(twirlTimer);
+                    message.editReply("Hmm I received a " + response.statusCode);
                     return;
                 }
-
-                clearInterval(twirlTimer);
 
 
                 let json = JSON.parse(body);
 
-                if (json.error) {
-                    msg.edit("Hmm, seems that service does not exist!").then(() => {
+                if (!(json.error & 0x100)) {
+                    message.editReply("Hmm, seems that service does not exist! "+ json.error).then(() => {
                         return true;
                     }).catch((err) => {
                         throw Error(err.message);
@@ -63,7 +61,7 @@ module.exports = {
                     .setImage('https://shields.tosdr.org/' + json.parameters.slug + '.png')
                     .setThumbnail(json.parameters.image)
                     .setTimestamp()
-                    .setFooter("https://tosdr.org/api/v2/service/" + message.argument + ".json");
+                    .setFooter("https://api.tosdr.org/v2/service/" + message.options[0].value.toString() + ".json");
 
                 for (var index in json.parameters.points.slice(0, 10)) {
 
@@ -77,9 +75,10 @@ module.exports = {
                     );
                 }
 
-                msg.edit("Here is your result!", embed);
+
+                message.editReply(embed);
             });
 
-        });
+
     },
 } as Command;

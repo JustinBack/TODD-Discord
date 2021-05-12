@@ -11,8 +11,8 @@ import * as cliProgress from 'cli-progress';
  * Load all commands in the `commands/` folder and return a collection of
  * commands.
  */
-export function loadCommands(bot: Client, database: Pool) {
-    const files = fs.readdirSync(path.join(__dirname, '../commands'));
+export async function loadCommands(bot: Client, database: Pool) {
+    const files = fs.readdirSync(path.join(__dirname, '../slash'));
     const commands = new Map<string, Command>();
     const errored: string[] = [];
 
@@ -22,7 +22,7 @@ export function loadCommands(bot: Client, database: Pool) {
 
     for (let file of files) {
         try {
-            const command = require(`../commands/${file}`) as Command;
+            const command = require(`../slash/${file}`) as Command;
 
             if (!process.env.GUILD_HOME && command.HomeGuildOnly) throw Error("GUILD_MODLOG .env is not set.");
 
@@ -33,8 +33,9 @@ export function loadCommands(bot: Client, database: Pool) {
             if (command.onLoad) {
                 command.onLoad(bot, database);
             }
+
             //console.log(color.magenta(`Loaded command`), color.cyan(command.name));
-            commands.set(command.name, command);
+            commands.set(command.commandData.name, command);
             bar1.increment();
 
         } catch (ex) {
@@ -43,7 +44,7 @@ export function loadCommands(bot: Client, database: Pool) {
             console.log(color.red(`Failed to load command file`), color.cyan(file), color.red(ex));
         }
     }
-
+    ;
     bar1.stop();
     if (errored.length > 0) {
         console.log(color.yellow('A few commands have failed to load: %s', color.cyan(errored.join(', '))));

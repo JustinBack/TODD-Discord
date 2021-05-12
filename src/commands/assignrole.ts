@@ -2,6 +2,10 @@ import { Command, messageObj, Permissions } from '../models';
 import { postModlog } from '../utils/modlog';
 import { Client } from 'discord.js';
 
+if(process.env.DO_NOT_LOAD_MOD_TOOLS){
+    throw new Error("Not loading! DO_NOT_LOAD_MOD_TOOLS is true");
+}
+
 module.exports = {
     name: 'assignrole',
     description: 'Assigns a role to a user',
@@ -28,7 +32,7 @@ module.exports = {
         }
 
         if (user) {
-            const member = message.message.guild.member(user);
+            const member = message.message.guild.members.cache.get(user.id);
             if (member) {
 
                 let errors = [];
@@ -41,7 +45,7 @@ module.exports = {
                         continue;
                     }
                     const userCanBeAssigned = (message.message.member.roles.highest.position > role.position);
-                    const hasPermissions = message.message.guild.me.hasPermission('MANAGE_ROLES') && (message.message.guild.me.roles.highest.position > message.message.member.roles.highest.position)
+                    const hasPermissions = message.message.guild.me.permissions.has('MANAGE_ROLES') && (message.message.guild.me.roles.highest.position > message.message.member.roles.highest.position)
 
 
                     if (!hasPermissions) {

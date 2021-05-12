@@ -1,10 +1,10 @@
-import { Client, DiscordAPIError } from "discord.js";
+import {ApplicationCommandData, Client, CommandInteraction, DiscordAPIError, Interaction} from "discord.js";
 import { Connection, Pool } from "mysql2";
 import { messageObj } from "./messageObj.model";
 
 export interface Command {
-  name: string;
-  description: string;
+  name?: string;
+  description?: string;
   invisible?: boolean;
   syntax: Array<string>;
   RLPointsConsume: number;
@@ -14,6 +14,7 @@ export interface Command {
   GuildOnly?: boolean;
   DMOnly?: boolean;
   RequiredEnvs?: Array<string>;
-  execute: (message: messageObj, bot: Client, mysql: Pool) => any;
+  commandData?: ApplicationCommandData;
+  execute: (message: messageObj | CommandInteraction, bot: Client, mysql: Pool) => any;
   onLoad?: (bot: Client, mysql: Pool) => any;
 }

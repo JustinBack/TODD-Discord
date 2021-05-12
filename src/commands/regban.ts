@@ -3,7 +3,9 @@ import { postModlog } from '../utils/modlog';
 import { Client, MessageEmbed } from 'discord.js';
 import { Pool } from 'mysql2';
 
-
+if(process.env.DO_NOT_LOAD_MOD_TOOLS){
+    throw new Error("Not loading! DO_NOT_LOAD_MOD_TOOLS is true");
+}
 
 
 module.exports = {
@@ -113,7 +115,7 @@ module.exports = {
         let warnreason = shiftedargs.join(" ");
 
         if (user) {
-            const member = message.message.guild.member(user);
+            const member = message.message.guild.members.cache.get(user.id);
             if (member) {
 
                 if (member.roles.cache.has(SelectedBan.id)) {
