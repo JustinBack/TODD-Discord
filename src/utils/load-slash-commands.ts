@@ -16,7 +16,7 @@ export async function loadCommands(bot: Client, database: Pool) {
     const commands = new Map<string, Command>();
     const errored: string[] = [];
 
-    console.log(color.cyan("Loading commands..."));
+    console.log(color.cyan("Loading slash commands..."));
     const bar1 = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
     bar1.start(files.length, 0);
 
@@ -34,8 +34,7 @@ export async function loadCommands(bot: Client, database: Pool) {
                 command.onLoad(bot, database);
             }
 
-            //console.log(color.magenta(`Loaded command`), color.cyan(command.name));
-            commands.set(command.commandData.name, command);
+            commands.set(command.name, command);
             bar1.increment();
 
         } catch (ex) {

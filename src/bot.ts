@@ -131,14 +131,17 @@ bot.on('ready', async () => {
         }]
     });
 
+
     slashcommands = await loadSlashCommands.loadCommands(bot, dbmaster);
 
 
     let cmddata = [];
     for (let command of slashcommands) {
-        cmddata.push((command.pop() as Command).commandData);
+        for(let subcommand of (command.pop() as Command).commandData){
+            cmddata.push(subcommand);
+        }
     }
-
+    await bot.application?.commands.set([]);
     let cmdresponse = await bot.guilds.cache.get(process.env.GUILD_HOME)?.commands.set(cmddata);
 
     console.log(cmdresponse);

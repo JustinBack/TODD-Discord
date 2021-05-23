@@ -14,7 +14,7 @@ export interface Command {
   GuildOnly?: boolean;
   DMOnly?: boolean;
   RequiredEnvs?: Array<string>;
-  commandData?: ApplicationCommandData;
+  commandData?: Array<ApplicationCommandData>;
   execute: (message: messageObj | CommandInteraction, bot: Client, mysql: Pool) => any;
   onLoad?: (bot: Client, mysql: Pool) => any;
 }
