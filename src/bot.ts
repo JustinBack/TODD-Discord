@@ -1,3 +1,5 @@
+// noinspection JSBitwiseOperatorUsage
+
 import {loadCommands} from './utils/load-commands';
 import * as loadSlashCommands from './utils/load-slash-commands';
 import {postModlog} from './utils/modlog';
@@ -6,18 +8,15 @@ import * as mysql from 'mysql2';
 import * as dotenv from 'dotenv';
 import * as redis from 'redis';
 import * as color from 'chalk';
-import {v4 as uuidv4} from 'uuid';
 import * as RateLimit from 'rate-limiter-flexible';
 import * as Discord from 'discord.js';
 import {Command, messageObj, Permissions} from './models';
-import {exec} from 'child_process';
 import {Intents, MessageEmbed, TextChannel} from 'discord.js';
 import * as crypto from 'crypto';
 import {serializeError} from 'serialize-error';
-import * as util from 'util';
 import * as fs from 'fs';
 import {AntiSpamClient} from './utils/anti-spam';
-
+import request = require('request');
 
 let commands: Map<string, Command>;
 let slashcommands: Map<string, Command>;
@@ -137,7 +136,7 @@ bot.on('ready', async () => {
 
     let cmddata = [];
     for (let command of slashcommands) {
-        for(let subcommand of (command.pop() as Command).commandData){
+        for (let subcommand of (command.pop() as Command).commandData) {
             cmddata.push(subcommand);
         }
     }
@@ -175,10 +174,10 @@ bot.on('ready', async () => {
     let WarningThreeRole = HomeGuild.roles.cache.get(process.env.GUILD_WARNING_THREE);
 
     setInterval(async function () {
-        let [rows, fields]: any = await dbmaster.promise().query("SELECT * FROM Warnings WHERE (Timestamp < DATE_SUB(NOW(),INTERVAL ? MINUTE) AND Tier = 1) OR (Timestamp < DATE_SUB(NOW(),INTERVAL ? MINUTE) AND Tier = 2) OR (Timestamp < DATE_SUB(NOW(),INTERVAL ? MINUTE) AND Tier = 3)", [process.env.WARNING_ONE_EXPIRE, process.env.WARNING_TWO_EXPIRE, process.env.WARNING_THREE_EXPIRE]);
+        let [rows]: any = await dbmaster.promise().query("SELECT * FROM Warnings WHERE (Timestamp < DATE_SUB(NOW(),INTERVAL ? MINUTE) AND Tier = 1) OR (Timestamp < DATE_SUB(NOW(),INTERVAL ? MINUTE) AND Tier = 2) OR (Timestamp < DATE_SUB(NOW(),INTERVAL ? MINUTE) AND Tier = 3)", [process.env.WARNING_ONE_EXPIRE, process.env.WARNING_TWO_EXPIRE, process.env.WARNING_THREE_EXPIRE]);
 
 
-        for (var i in rows) {
+        for (let i in rows) {
             let row = rows[i];
 
             if (row.Tier == 1) {
@@ -191,7 +190,7 @@ bot.on('ready', async () => {
 
 
                 postModlog(bot.user, `Tier 1 Warning for User <@${member.id}> expired, removed it.`);
-                member.roles.remove(WarningOneRole);
+                await member.roles.remove(WarningOneRole);
             } else if (row.Tier == 2) {
                 const member = HomeGuild.members.cache.get(row.ID);
 
@@ -200,7 +199,7 @@ bot.on('ready', async () => {
                     continue;
                 }
                 postModlog(bot.user, `Tier 2 Warning for User <@${member.id}> expired, removed it.`);
-                member.roles.remove(WarningTwoRole);
+                await member.roles.remove(WarningTwoRole);
             } else if (row.Tier == 3) {
                 const member = HomeGuild.members.cache.get(row.ID);
 
@@ -209,7 +208,7 @@ bot.on('ready', async () => {
                     continue;
                 }
                 postModlog(bot.user, `Tier 3 Warning for User <@${member.id}> expired, removed it.`);
-                member.roles.remove(WarningThreeRole);
+                await member.roles.remove(WarningThreeRole);
             }
         }
 
@@ -236,22 +235,22 @@ if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
             if (!oldMember.roles.cache.has(WarningOneRole.id) && newMember.roles.cache.has(WarningOneRole.id)) {
                 let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 1]);
                 if (!inserted) {
-                    newMember.roles.remove(WarningOneRole);
-                    channel.send(`I failed to give <@${newMember.id}> The tier one warning due to a database error. I have removed it.`);
+                    await newMember.roles.remove(WarningOneRole);
+                    await channel.send(`I failed to give <@${newMember.id}> The tier one warning due to a database error. I have removed it.`);
                 }
             }
             if (!oldMember.roles.cache.has(WarningTwoRole.id) && newMember.roles.cache.has(WarningTwoRole.id)) {
                 let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 2]);
                 if (!inserted) {
-                    newMember.roles.remove(WarningTwoRole);
-                    channel.send(`I failed to give <@${newMember.id}> The tier two warning due to a database error. I have removed it.`);
+                    await newMember.roles.remove(WarningTwoRole);
+                    await channel.send(`I failed to give <@${newMember.id}> The tier two warning due to a database error. I have removed it.`);
                 }
             }
             if (!oldMember.roles.cache.has(WarningThreeRole.id) && newMember.roles.cache.has(WarningThreeRole.id)) {
                 let inserted = await dbmaster.promise().query("INSERT INTO Warnings (ID, Tier) VALUES (?, ?)", [newMember.id, 3]);
                 if (!inserted) {
-                    newMember.roles.remove(WarningThreeRole);
-                    channel.send(`I failed to give <@${newMember.id}> The tier three warning due to a database error. I have removed it.`);
+                    await newMember.roles.remove(WarningThreeRole);
+                    await channel.send(`I failed to give <@${newMember.id}> The tier three warning due to a database error. I have removed it.`);
                 }
             }
         }
@@ -260,22 +259,22 @@ if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
             if (oldMember.roles.cache.has(WarningOneRole.id) && !newMember.roles.cache.has(WarningOneRole.id)) {
                 let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 1]);
                 if (!inserted) {
-                    newMember.roles.add(WarningOneRole);
-                    channel.send(`I failed to remove <@${newMember.id}> The tier one warning due to a database error. I have added it.`);
+                    await newMember.roles.add(WarningOneRole);
+                    await channel.send(`I failed to remove <@${newMember.id}> The tier one warning due to a database error. I have added it.`);
                 }
             }
             if (oldMember.roles.cache.has(WarningTwoRole.id) && !newMember.roles.cache.has(WarningTwoRole.id)) {
                 let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 2]);
                 if (!inserted) {
-                    newMember.roles.add(WarningTwoRole);
-                    channel.send(`I failed to remove <@${newMember.id}> The tier two warning due to a database error. I have added it.`);
+                    await newMember.roles.add(WarningTwoRole);
+                    await channel.send(`I failed to remove <@${newMember.id}> The tier two warning due to a database error. I have added it.`);
                 }
             }
             if (oldMember.roles.cache.has(WarningThreeRole.id) && !newMember.roles.cache.has(WarningThreeRole.id)) {
                 let inserted = await dbmaster.promise().query("DELETE FROM Warnings WHERE ID = ? AND Tier = ?", [newMember.id, 3]);
                 if (!inserted) {
-                    newMember.roles.add(WarningThreeRole);
-                    channel.send(`I failed to remove <@${newMember.id}> The tier three warning due to a database error. I have added it.`);
+                    await newMember.roles.add(WarningThreeRole);
+                    await channel.send(`I failed to remove <@${newMember.id}> The tier three warning due to a database error. I have added it.`);
                 }
             }
         }
@@ -436,7 +435,7 @@ bot.on('message', async message => {
                 let Account = Bitmasks[0][0];
 
                 if (Account["Bitmask"] & Permissions.USER_DISCOURAGED) {
-                    message.delete();
+                    await message.delete();
                     return
                 }
             }
@@ -466,7 +465,7 @@ bot.on('message', async message => {
                                 })
                             })[0];
                             if (roleRow) {
-                                message.channel.send(roleRow.Text);
+                                await message.channel.send(roleRow.Text);
                             }
 
                         }
@@ -479,7 +478,7 @@ bot.on('message', async message => {
                     let ChatBot: any = await dbmaster.promise().query("SELECT * FROM BotChat");
                     if (ChatBot[0].length > 0) {
                         if (process.env.GUILD_HOME && message.guild && message.guild.id === process.env.GUILD_HOME) {
-                            for (var i in ChatBot[0]) {
+                            for (let i in ChatBot[0]) {
                                 let row = ChatBot[0][i];
                                 if (message.content.includes(row.Keywords)) {
                                     const embed = new MessageEmbed()
@@ -491,6 +490,70 @@ bot.on('message', async message => {
                             }
                         }
                     }
+                }
+            }
+
+            if (!(Account["Bitmask"] & Permissions.IGNORE_SEARCH)) {
+                if (process.env.GUILD_HOME && message.guild && message.guild.id === process.env.GUILD_HOME && (
+                    message.content.toLowerCase().startsWith("what is") ||
+                    message.content.toLowerCase().startsWith("should we") ||
+                    message.content.toLowerCase().startsWith("can you") ||
+                    message.content.toLowerCase().startsWith("how to") ||
+                    message.content.toLowerCase().startsWith("if you") ||
+                    message.content.toLowerCase().startsWith("if i") ||
+                    message.content.toLowerCase().startsWith("which one is") ||
+                    message.content.toLowerCase().startsWith("can i") ||
+                    message.content.toLowerCase().startsWith("how can i") ||
+                    message.content.toLowerCase().startsWith("is there") ||
+                    message.content.toLowerCase().startsWith("how private") ||
+                    message.content.toLowerCase().startsWith("how do I")
+                )) {
+
+                    function truncate(str: any, n: number, useWordBoundary: boolean = false) {
+                        if (str.length <= n) {
+                            return str;
+                        }
+                        const subString = str.substr(0, n - 1); // the original check
+                        return (useWordBoundary
+                            ? subString.substr(0, subString.lastIndexOf(" "))
+                            : subString) + "...";
+                    }
+
+                    request("https://search.tosdr.org/search?q=" + encodeURIComponent(message.content.split("\n")[0].split(". ")[0]) + "&format=json", {headers: {"User-Agent": "Todd"}}, function (error, response, body) {
+                        if (error) {
+                            throw Error(error.message);
+                        }
+                        if (response.statusCode !== 200) {
+                            message.reply("Hmm I received a " + response.statusCode);
+                            return;
+                        }
+
+
+                        let json = JSON.parse(body);
+
+                        const embed = new MessageEmbed()
+                            .setColor('#0099ff')
+                            .setTitle(json.query)
+                            .setURL('https://search.tosdr.org/search?q=' + encodeURIComponent(json.query))
+                            .setTimestamp()
+                            .setFooter(json.number_of_results);
+
+                        for (const result of json.results.slice(0, 10)) {
+
+                            if (typeof result.content === 'undefined') {
+                                result.content = 'No Description';
+                            }
+
+                            embed.addField(
+                                truncate(result.title, 60, true),
+                                `[${truncate(result.content, 140, true)}](${result.url})`,
+                                true
+                            );
+                        }
+
+
+                        message.reply("Have you tried searching on the internet? Below are some results from search.tosdr.org", {embed});
+                    });
                 }
             }
         }
@@ -582,7 +645,7 @@ bot.on('message', async message => {
                     return;
                 }
 
-                var pjson = require(__dirname + '/package.json');
+                const pjson = require(__dirname + '/package.json');
 
                 const embed = new MessageEmbed();
 
@@ -620,7 +683,7 @@ bot.on('message', async message => {
     } catch (error) {
 
         //_messageObj.message.channel.stopTyping(true);
-        message.channel.send("An error has occurred!");
+        await message.channel.send("An error has occurred!");
         console.log(color.red("[ERROR]", color.magenta(`<${_messageObj.command}>`), color.yellow(error), error.stack));
     }
 });
