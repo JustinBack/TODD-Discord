@@ -1,3 +1,4 @@
+import { Transaction } from "@sentry/types/dist/transaction";
 import {Client, DiscordAPIError} from "discord.js";
 import { Connection, Pool } from "mysql2";
 import { messageObj } from "./messageObj.model";
@@ -15,6 +16,6 @@ export interface Command {
   DMOnly?: boolean;
   RequiredEnvs?: Array<string>;
   commandData?: Array<any>;
-  execute: (message: messageObj, bot: Client, mysql: Pool) => any;
+  execute: (message: messageObj, bot: Client, mysql: Pool, request_id: string, transaction?: Transaction) => any;
   onLoad?: (bot: Client, mysql: Pool) => any;
 }

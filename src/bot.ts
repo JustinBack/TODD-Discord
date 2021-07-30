@@ -10,6 +10,7 @@ import * as redis from 'redis';
 import * as color from 'chalk';
 import * as RateLimit from 'rate-limiter-flexible';
 import * as Discord from 'discord.js';
+import * as uuid from 'uuid';
 import {Command, messageObj, Permissions} from './models';
 import {Intents, MessageEmbed, TextChannel} from 'discord.js';
 import * as crypto from 'crypto';
@@ -17,9 +18,12 @@ import {serializeError} from 'serialize-error';
 import * as fs from 'fs';
 import {AntiSpamClient} from './utils/anti-spam';
 import request = require('request');
+import * as Sentry from '@sentry/node';
+import * as Tracing from '@sentry/tracing';
 
 let commands: Map<string, Command>;
 let slashcommands: Map<string, Command>;
+
 
 console.log(color.blue("********************** Initializing ************************"));
 
@@ -41,6 +45,15 @@ dotenv.config({
     path: __dirname + "/.env"
 });
 console.log(color.green("Loaded environment variables!"));
+
+if (process.env.SENTRY_DSN) {
+    console.log(color.green("Init Sentry"));
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: (process.env.DEV_MODE ? 'development' : 'production'),
+        tracesSampleRate: 1.0,
+    });
+}
 
 if (!process.env.BOT_TOKEN) throw new Error("BOT_TOKEN .env is not set.");
 if (!process.env.BOT_PREFIX) throw new Error("BOT_PREFIX .env is not set.");
@@ -72,6 +85,7 @@ if (process.env.REDIS_AUTH.length > 0) {
 // It is recommended to process Redis errors and setup some reconnection strategy
 redisClient.on('error', (err) => {
     console.log(err);
+    Sentry.captureException(err);
 });
 
 
@@ -107,7 +121,7 @@ if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
         await dbmaster.promise().query("DELETE FROM pHashes WHERE ID = ?", [guildMember.id]);
     });
 }
-
+/*
 bot.on('interaction', interaction => {
     if (!interaction.isCommand()) return;
 
@@ -118,7 +132,7 @@ bot.on('interaction', interaction => {
 
 
 });
-
+*/
 bot.on('ready', async () => {
 
     bot.user.setPresence({
@@ -289,6 +303,7 @@ if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
                     await reaction.fetch();
                 } catch (error) {
                     console.error('Something went wrong when fetching the message: ', error);
+                    Sentry.captureException(error);
                     return;
                 }
             }
@@ -317,6 +332,7 @@ if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
                 dbmaster.query("DELETE FROM Reactions WHERE MessageID = ? AND UserID = ? AND Reaction = ?", [reaction.message.id, user.id, reaction.emoji.identifier], function (err) {
                     if (err) {
                         console.log(err);
+                        Sentry.captureException(err);
                         return;
                     }
                     const embed = new MessageEmbed()
@@ -341,6 +357,7 @@ if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
                     await reaction.fetch();
                 } catch (error) {
                     console.error('Something went wrong when fetching the message: ', error);
+                    Sentry.captureException(error);
                     return;
                 }
             }
@@ -372,6 +389,7 @@ if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
                         for (const reaction of userReactions.values()) {
                             await reaction.users.remove(user.id);
                         }
+                        Sentry.captureException(err);
                         return;
                     }
                     if (rows.length > 0) {
@@ -390,6 +408,7 @@ if (process.env.DO_NOT_LOAD_MOD_TOOLS !== "true") {
                             for (const reaction of userReactions.values()) {
                                 await reaction.users.remove(user.id);
                             }
+                            Sentry.captureException(err);
                             return;
                         }
 
@@ -422,6 +441,7 @@ bot.on('message', async message => {
             await message.fetch();
         } catch (error) {
             console.error('Something went wrong when fetching the message: ', error);
+            Sentry.captureException(error);
             return;
         }
     }
@@ -520,10 +540,10 @@ bot.on('message', async message => {
 
                     request("https://search.tosdr.org/search?q=" + encodeURIComponent(message.content.split("\n")[0].split(". ")[0]) + "&format=json", {headers: {"User-Agent": "Todd"}}, function (error, response, body) {
                         if (error) {
-                            throw Error(error.message);
+                            Sentry.captureException(error);
+                            return;
                         }
                         if (response.statusCode !== 200) {
-                            message.reply("Hmm I received a " + response.statusCode);
                             return;
                         }
 
@@ -562,128 +582,123 @@ bot.on('message', async message => {
     }
 
     let _messageObj = new messageObj(message, commands);
-    //_messageObj.message.channel.startTyping();
+
+    const transaction = Sentry.startTransaction({
+        op: _messageObj.command,
+        name: _messageObj.message.content,
+    });
+
 
     try {
 
+        let request_id = uuid.v4();
 
         let execCommand = commands.get(_messageObj.command);
+        Sentry.setContext("command", {
+            type: _messageObj.message.channel.type,
+            chanid: _messageObj.message.channel.id,
+            id: _messageObj.message.id,
+            guild: _messageObj.message.guild.id,
+            request_id: request_id,
+            content: _messageObj.message.content
+        });
+
 
         if (!execCommand) {
             const embed = new MessageEmbed()
                 .setColor('#0099ff')
                 .setTitle(process.env.BOT_PREFIX + " " + _messageObj.command)
+                .setFooter('Request ID: ' + request_id)
                 .setDescription(`This command does not exist, try using our \`${process.env.BOT_PREFIX} help\` command for a list of available commands`);
-            return _messageObj.message.channel.send(embed);
-        }
-
-        if (execCommand.Bitmask !== 0) {
+            await _messageObj.message.channel.send(embed);
+        } else if (execCommand.Bitmask !== 0) {
             let rows: any = await dbmaster.promise().query("SELECT * FROM Permissions WHERE ID = ?", [message.author.id]);
 
             if (rows[0].length === 0) {
                 const embed = new MessageEmbed()
                     .setColor('#0099ff')
                     .setTitle("Missing Bitmask Account")
+                    .setFooter('Request ID: ' + request_id)
                     .setDescription(`Your account does not have a bitmask assigned. Contact Staff`);
-                return _messageObj.message.channel.send(embed);
+                await _messageObj.message.channel.send(embed);
+            } else {
+
+                let Account = rows[0][0];
+
+                if (!(Account["Bitmask"] & execCommand.Bitmask)) {
+                    const embed = new MessageEmbed()
+                        .setColor('#0099ff')
+                        .setTitle("Missing Permissions")
+                        .setFooter('Request ID: ' + request_id)
+                        .setDescription(`\`\`\`${Object.keys(Permissions).find(key => Permissions[key] === execCommand.Bitmask)}: ${execCommand.Bitmask}\`\`\``);
+                    await message.channel.send(embed);
+                }
             }
-
-            let Account = rows[0][0];
-
-            if (!(Account["Bitmask"] & execCommand.Bitmask)) {
-                const embed = new MessageEmbed()
-                    .setColor('#0099ff')
-                    .setTitle("Missing Permissions")
-                    .setDescription(`\`\`\`${Object.keys(Permissions).find(key => Permissions[key] === execCommand.Bitmask)}: ${execCommand.Bitmask}\`\`\``);
-                message.channel.send(embed);
-                return;
-            }
-        }
-
-        if (execCommand.HomeGuildOnly && _messageObj.message.guild.id !== process.env.GUILD_HOME) {
+        } else if (execCommand.HomeGuildOnly && _messageObj.message.guild.id !== process.env.GUILD_HOME) {
             const embed = new MessageEmbed()
                 .setColor('#0099ff')
                 .setTitle("Invalid Server")
+                .setFooter('Request ID: ' + request_id)
                 .setDescription(`This Command cannot be run on this server`);
-            _messageObj.message.channel.send(embed);
-            return;
+            await _messageObj.message.channel.send(embed);
         } else if (execCommand.ExternalGuildOnly && _messageObj.message.guild.id === process.env.GUILD_HOME) {
             const embed = new MessageEmbed()
                 .setColor('#0099ff')
                 .setTitle("Invalid Server")
+                .setFooter('Request ID: ' + request_id)
                 .setDescription(`This Command cannot be run on this server`);
-            _messageObj.message.channel.send(embed);
-            return;
+            await _messageObj.message.channel.send(embed);
         } else if (execCommand.DMOnly && _messageObj.message.channel.type !== "dm") {
             const embed = new MessageEmbed()
                 .setColor('#0099ff')
                 .setTitle("Invalid Channel Type")
+                .setFooter('Request ID: ' + request_id)
                 .setDescription(`This Command can only be run from DMs!`);
-            _messageObj.message.channel.send(embed);
-            return;
+            await _messageObj.message.channel.send(embed);
         } else if (execCommand.GuildOnly && _messageObj.message.channel.type !== "text") {
+            console.log("Command failed to execute, not in Guild Channel");
             const embed = new MessageEmbed()
                 .setColor('#0099ff')
                 .setTitle("Invalid Channel Type")
+                .setFooter('Request ID: ' + request_id)
                 .setDescription(`This Command can only be run from Guild Text Channels!`);
-            _messageObj.message.channel.send(embed);
-            return;
-        }
+            await _messageObj.message.channel.send(embed);
+        } else {
 
-        console.log("Received command");
-
-        rateLimiter.consume(_messageObj.message.author.id + "_" + _messageObj.command, execCommand.RLPointsConsume)
-            .then(() => {
-                execCommand.execute(_messageObj, bot, dbmaster);
-                //_messageObj.message.channel.stopTyping(true);
-            })
-            .catch((exception) => {
-
+            rateLimiter.consume(_messageObj.message.author.id + "_" + _messageObj.command, execCommand.RLPointsConsume)
+                .then(async () => {
+                    await execCommand.execute(_messageObj, bot, dbmaster, request_id, transaction);
+                }).catch(async (exception) => {
                 if (typeof exception._remainingPoints != "undefined") {
-                    message.channel.send("Seems you hit the ratelimit, try again later, in like 30 secs");
-                    return;
+                    return await message.channel.send("Seems you hit the ratelimit, try again later, in like 30 secs");
                 }
-
-                const pjson = require(__dirname + '/package.json');
 
                 const embed = new MessageEmbed();
 
-                let iv = crypto.randomBytes(16);
-                let StackTrace;
-                if (process.env.BOT_CRASH_SECRET) {
-
-                    const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(process.env.BOT_CRASH_SECRET), iv);
-                    StackTrace = cipher.update(JSON.stringify(serializeError(exception)));
-
-                    StackTrace = Buffer.concat([StackTrace, cipher.final()]);
-
-                    embed.setColor('#0099ff')
-                        .setTitle("Woops! I crashed...")
-                        .setDescription("```" + iv.toString('hex') + "." + StackTrace.toString('hex') + "```")
-                        .addField("What to do?", "Report the bug using the string above")
-                        .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
-                        .setTimestamp();
-                } else {
-                    StackTrace = JSON.stringify(serializeError(exception));
-                    embed.setColor('#0099ff')
-                        .setTitle("Woops! I crashed...")
-                        .setDescription("```" + StackTrace + "```")
-                        .addField("What to do?", "Report the bug using the string above")
-                        .addField("Bugs", `[Report a Bug](${pjson.bugs.url})`, true)
-                        .setTimestamp();
-                }
+                embed.setColor('#0099ff')
+                    .setTitle("Woops! I crashed...")
+                    .addField("What to do?", `Notify <@253160415947653120> with the Error Code \`${Sentry.getCurrentHub().lastEventId()}\``)
+                    .setFooter('Request ID: ' + request_id)
+                    .setTimestamp();
 
 
-                message.channel.send(embed);
-                //_messageObj.message.channel.stopTyping(true);
-
+                await message.channel.send(embed);
+                Sentry.captureException(exception);
             });
-
+        }
+        transaction.finish();
     } catch (error) {
+        const embed = new MessageEmbed();
 
-        //_messageObj.message.channel.stopTyping(true);
-        await message.channel.send("An error has occurred!");
-        console.log(color.red("[ERROR]", color.magenta(`<${_messageObj.command}>`), color.yellow(error), error.stack));
+        embed.setColor('#0099ff')
+            .setTitle("Woops! I crashed...")
+            .addField("What to do?", `Notify <@253160415947653120> with the Error Code \`${Sentry.getCurrentHub().lastEventId()}\``)
+            .setTimestamp();
+
+
+        await message.channel.send(embed);
+        transaction.finish();
+        Sentry.captureException(error);
     }
 });
 
