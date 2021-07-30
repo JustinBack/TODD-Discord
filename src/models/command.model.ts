@@ -1,4 +1,4 @@
-import {ApplicationCommandData, Client, CommandInteraction, DiscordAPIError, Interaction} from "discord.js";
+import {Client, DiscordAPIError} from "discord.js";
 import { Connection, Pool } from "mysql2";
 import { messageObj } from "./messageObj.model";
 
@@ -14,7 +14,7 @@ export interface Command {
   GuildOnly?: boolean;
   DMOnly?: boolean;
   RequiredEnvs?: Array<string>;
-  commandData?: Array<ApplicationCommandData>;
-  execute: (message: messageObj | CommandInteraction, bot: Client, mysql: Pool) => any;
+  commandData?: Array<any>;
+  execute: (message: messageObj, bot: Client, mysql: Pool) => any;
   onLoad?: (bot: Client, mysql: Pool) => any;
 }

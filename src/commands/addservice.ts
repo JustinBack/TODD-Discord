@@ -14,7 +14,6 @@ module.exports = {
             .setTitle("Add new service")
             .setDescription(`To add a new service, refer to the links below`)
             .addField("Request a service", "https://to.tosdr.org/request")
-            .addField("Guide: How-To Request a service", "https://jback.dev/x/CgBD")
             .setTimestamp();
 
         message.message.channel.send(embed).then(() => {

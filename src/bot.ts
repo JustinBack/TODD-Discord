@@ -34,7 +34,7 @@ if (process[Symbol.for("ts-node.register.instance")]) {
 
 export const bot = new Discord.Client({
     partials: ['CHANNEL', 'MESSAGE', 'REACTION'],
-    intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MEMBERS]
+    //intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MEMBERS]
 });
 
 dotenv.config({
@@ -120,17 +120,16 @@ bot.on('interaction', interaction => {
 });
 
 bot.on('ready', async () => {
-    if (!bot.application?.owner) await bot.application?.fetch();
 
     bot.user.setPresence({
         status: 'online',
-        activities: [{
+        activity: {
             name: 'I am loading!',
             type: 'WATCHING'
-        }]
+        }
     });
 
-
+    /*
     slashcommands = await loadSlashCommands.loadCommands(bot, dbmaster);
 
 
@@ -144,17 +143,17 @@ bot.on('ready', async () => {
     let cmdresponse = await bot.guilds.cache.get(process.env.GUILD_HOME)?.commands.set(cmddata);
 
     console.log(cmdresponse);
-
+    */
 
     commands = loadCommands(bot, dbmaster);
 
     console.log(`Logged in as ${bot.user.tag}!`);
-    bot.user.setPresence({
+    await bot.user.setPresence({
         status: 'online',
-        activities: [{
+        activity: {
             name: 'in chat for ' + process.env.BOT_PREFIX + " help",
             type: 'WATCHING'
-        }]
+        }
     });
 
     if (!process.env.GUILD_HOME) return;
