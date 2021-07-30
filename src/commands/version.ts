@@ -14,8 +14,8 @@ module.exports = {
     RLPointsConsume: 2,
     execute: (message: messageObj, bot: Client) => {
 
-        let pathpackage = __dirname + '/package.json';
-        let pathmodules = __dirname + '/node_modules';
+        let pathpackage = __dirname + '/../package.json';
+        let pathmodules = __dirname + '/../../node_modules';
 
 
         if (process.env.DEV_MODE) {
